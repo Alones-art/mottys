@@ -1,0 +1,168 @@
+package workbench
+
+import (
+	"time"
+
+	"github.com/vivaui/viva/components"
+	"github.com/vivaui/viva/gfx"
+	"github.com/vivaui/viva/text"
+)
+
+// selectTypeahead is the typed prefix of one closed select trigger. The owner
+// is the trigger whose options the session belongs to; moving to another
+// trigger or closing the dialog starts over.
+type selectTypeahead struct {
+	owner gfx.ID
+	state components.MenuTypeahead
+}
+
+// selectTypeaheadKey commits the option a closed select trigger types toward,
+// as Base UI does: the list does not open, the matching value is chosen, and
+// repeating the first letter cycles through the options that share it. The
+// caller builds the options from the same data the open popup paints.
+func (state *State) selectTypeaheadKey(event gfx.KeyEvent) (gfx.EventResult, bool) {
+	if event.Release || event.Text == "" || event.Target.IsZero() ||
+		event.Modifiers&(gfx.ModifierControl|gfx.ModifierAlt|gfx.ModifierMeta) != 0 {
+		return gfx.EventResult{}, false
+	}
+	items, commit, ok := state.selectTypeaheadOptions(event.Target)
+	if !ok {
+		state.selectTypeahead = selectTypeahead{}
+		return gfx.EventResult{}, false
+	}
+	if state.selectTypeahead.owner != event.Target {
+		state.selectTypeahead = selectTypeahead{owner: event.Target}
+	}
+	id, matched := state.selectTypeahead.state.TypeItems(event.Text, time.Now(), items, gfx.ID{})
+	if !matched || !commit(id) {
+		if !matched {
+			state.selectTypeahead.state.Reset()
+		}
+		return gfx.EventResult{}, false
+	}
+	return gfx.EventResult{Handled: true, Repaint: true}, true
+}
+
+// selectTypeaheadOptions returns the closed select's choices and the action
+// that commits one. It reports false when the target is not a select trigger
+// currently showing its value rather than its list.
+func (state *State) selectTypeaheadOptions(target gfx.ID) ([]components.MenuTypeaheadItem, func(gfx.ID) bool, bool) {
+	switch {
+	case localShellSettingVisible() && state.modal == modalNone && state.activeSection == sectionSettings && state.settingsCategory == settingsTerminal && target == hitSettingsLocalShell && !state.localShellMenu.open:
+		items := make([]components.MenuTypeaheadItem, 0, len(state.localShellMenu.choices))
+		for index, choice := range state.localShellMenu.choices {
+			items = append(items, components.MenuTypeaheadItem{ID: hitSettingsLocalShellItems.At(index), Label: choice.Name})
+		}
+		return items, state.clickLocalShell, true
+	case state.modal == modalNone && state.activeSection == sectionSettings && state.settingsCategory == settingsFiles && target == hitSettingsEditor && !state.editorMenu.open:
+		items := make([]components.MenuTypeaheadItem, 0, len(state.editorMenu.choices))
+		for index, editor := range state.editorMenu.choices {
+			items = append(items, components.MenuTypeaheadItem{ID: hitSettingsEditorItems.At(index), Label: state.editorChoiceName(editor)})
+		}
+		return items, state.clickEditorSelect, true
+	case state.aiPanelVisible() && target == hitAITarget && !state.ai.panel.targetOpen && state.ai.run == nil:
+		options := state.aiTargetOptions()
+		items := make([]components.MenuTypeaheadItem, 0, len(options))
+		for _, option := range options {
+			items = append(items, components.MenuTypeaheadItem{ID: option.ID, Label: option.Label, Disabled: option.Disabled})
+		}
+		return items, state.aiChooseOnlyTarget, true
+	case state.aiSettingsVisible() && state.settingsCategory == settingsMCP && target == hitAISetMCPSelect && !state.ai.cfg.mcpSelectOpen:
+		options := aiMCPClientOptions()
+		items := make([]components.MenuTypeaheadItem, 0, len(options))
+		for _, option := range options {
+			items = append(items, components.MenuTypeaheadItem{ID: option.ID, Label: option.Label})
+		}
+		return items, state.aiSettingsClick, true
+	case state.aiSettingsVisible() && state.settingsCategory == settingsMCP && target == hitAISetAgentSelect && !state.ai.cfg.agentSelectOpen:
+		options := aiAgentClientOptions()
+		items := make([]components.MenuTypeaheadItem, 0, len(options))
+		for _, option := range options {
+			items = append(items, components.MenuTypeaheadItem{ID: option.ID, Label: option.Label})
+		}
+		return items, state.aiSettingsClick, true
+
+	case target == hitAISetFormPreset && !state.ai.cfg.presetOpen:
+		items := make([]components.MenuTypeaheadItem, 0, len(aiPresets))
+		for index := range aiPresets {
+			items = append(items, components.MenuTypeaheadItem{
+				ID: hitAISetFormPresetItems.At(index), Label: state.aiPresetLabel(index),
+			})
+		}
+		return items, func(id gfx.ID) bool {
+			index, ok := id.In(hitAISetFormPresetItems)
+			if !ok || index < 0 || index >= len(aiPresets) {
+				return false
+			}
+			state.ai.cfg.preset = index
+			return true
+		}, true
+
+	case state.modal == modalNewHost && target == hitDialogPortsTrigger && !state.editor.portsOpen:
+		items := make([]components.MenuTypeaheadItem, 0, len(state.editor.ports))
+		for index, port := range state.editor.ports {
+			items = append(items, components.MenuTypeaheadItem{
+				ID: hitDialogPortsItemList.At(index), Label: port.Device,
+			})
+		}
+		return items, func(id gfx.ID) bool {
+			index, ok := id.In(hitDialogPortsItemList)
+			if !ok || index < 0 || index >= len(state.editor.ports) {
+				return false
+			}
+			state.editor.address = text.Editor{}
+			state.editor.address.Insert(state.editor.ports[index].Device)
+			return true
+		}, true
+
+	case state.modal == modalNewHost && target == hitDialogIcon && !state.editor.iconOpen:
+		choices := hostIconChoices()
+		items := make([]components.MenuTypeaheadItem, 0, len(choices))
+		for _, choice := range choices {
+			items = append(items, components.MenuTypeaheadItem{
+				ID: hitDialogIconItemList.At(int(choice)), Label: state.hostIconLabel(choice),
+			})
+		}
+		return items, func(id gfx.ID) bool {
+			index, ok := id.In(hitDialogIconItemList)
+			choice := hostIcon(index)
+			if !ok || !choice.valid() {
+				return false
+			}
+			state.editor.icon, state.editor.iconChosen = choice, true
+			return true
+		}, true
+	}
+	return nil, nil, false
+}
+
+// proxyTargetSelectable is the rule the open target select paints: a host that
+// is SSH and not already the target of another route.
+func (state *State) proxyTargetSelectable(id uint32) bool {
+	host, ok := state.hostByID(id)
+	return ok && host.isSSH() && !state.proxyTargetConfiguredExcluding(id, state.proxyEditor.routeID)
+}
+
+// chooseProxyTarget and chooseProxyJump apply the same choices as the open
+// popup, including the swap that keeps the two hosts distinct.
+func (state *State) chooseProxyTarget(id uint32) bool {
+	if !state.proxyTargetSelectable(id) {
+		return false
+	}
+	if id == state.proxyEditor.jumpID {
+		state.proxyEditor.jumpID = state.proxyEditor.targetID
+	}
+	state.proxyEditor.targetID = id
+	return true
+}
+
+func (state *State) chooseProxyJump(id uint32) bool {
+	if _, ok := state.hostByID(id); !ok {
+		return false
+	}
+	if id == state.proxyEditor.targetID {
+		state.proxyEditor.targetID = state.proxyEditor.jumpID
+	}
+	state.proxyEditor.jumpID = id
+	return true
+}

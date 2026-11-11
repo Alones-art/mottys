@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motty · 首页重构设计稿</title>
+<style>
+:root{--ink:#101A16;--ink2:#17231E;--side:#8FA39A;--sideMuted:#5F7268;--brand:#16C07A;--deep:#0B6B4A;--paper:#FFF;--paper2:#F6F8F6;--line:#E7EBE8;--text:#16211C;--t2:#6B7A72;--t3:#9AA8A0;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--paper);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+.app{display:flex;min-height:100vh}
+svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sidebar{width:248px;flex:none;background:var(--ink);color:var(--side);display:flex;flex-direction:column;padding:22px 14px 16px;position:relative}
+.sidebar::after{content:"";position:absolute;inset:0 0 0 auto;width:1px;background:linear-gradient(180deg,rgba(22,192,122,.42),rgba(255,255,255,.03) 52%)}
+.brand{display:flex;align-items:center;gap:11px;padding:0 10px 24px}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#23DC92,#0B8A5F);display:grid;place-items:center;box-shadow:0 6px 18px rgba(16,192,122,.3)}
+.brand-mark svg{width:20px;height:20px;stroke:#062A1C;stroke-width:2.6}
+.brand-name{font-size:19px;font-weight:680;color:#fff;letter-spacing:-.025em;line-height:1.1}
+.brand-tag{font-size:9px;color:var(--sideMuted);letter-spacing:.2em;text-transform:uppercase;margin-top:3px}
+.nav-label{font-size:10px;font-weight:650;letter-spacing:.16em;color:#5B6F65;padding:15px 12px 7px}
+.nav-item{display:flex;align-items:center;gap:11px;height:38px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:500;color:var(--side);cursor:default;position:relative;transition:background .15s,color .15s}
+.nav-item svg.i{opacity:.78}
+.nav-item:hover{background:rgba(255,255,255,.045);color:#DDE9E2}
+.nav-item.active{background:linear-gradient(90deg,rgba(22,192,122,.19),rgba(22,192,122,.035));color:#fff;font-weight:650}
+.nav-item.active::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--brand);box-shadow:0 0 12px rgba(22,192,122,.55)}
+.nav-item.active svg.i{color:var(--brand);opacity:1}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:700;color:#062A1C;background:var(--brand);border-radius:20px;padding:2px 7px}
+.nav-count{margin-left:auto;font-size:11px;color:var(--sideMuted);font-family:var(--mono)}
+.side-foot{margin-top:auto;padding-top:16px}
+.session-card{background:var(--ink2);border:1px solid rgba(255,255,255,.065);border-radius:13px;padding:13px}
+.session-head{display:flex;align-items:center;gap:8px;font-size:12px;color:#DCEAE2;font-weight:650}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px rgba(22,192,122,.16)}
+.session-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--sideMuted);margin-top:9px;font-family:var(--mono)}
+.session-row .live-dot{width:5px;height:5px;box-shadow:none}
+.side-links{display:flex;align-items:center;gap:8px;margin-top:12px;padding:0 4px}
+.side-link{font-size:11px;color:#6E8177;display:flex;align-items:center;gap:6px;cursor:default}
+.side-link:hover{color:#DDE9E2}
+.side-link svg.i{width:13px;height:13px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper)}
+.topbar{height:54px;flex:none;display:flex;align-items:center;gap:12px;padding:0 28px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden}
+.tab{display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;font-size:12px;color:var(--t2);background:var(--paper2);white-space:nowrap;cursor:default}
+.tab.active{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 3px rgba(16,26,22,.09),0 0 0 1px var(--line)}
+.tab .dot{width:6px;height:6px;border-radius:50%}
+.tab .x{color:var(--t3);font-size:14px;margin-left:2px}
+.new-tab{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--t3);font-size:17px;cursor:default}
+.top-actions{display:flex;align-items:center;gap:12px}
+.cmd-search{display:flex;align-items:center;gap:8px;height:32px;padding:0 9px 0 11px;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--t3);min-width:186px;background:#fff}
+.cmd-search svg.i{width:14px;height:14px}
+.kbd{margin-left:auto;font-size:10px;border:1px solid var(--line);background:var(--paper2);border-radius:5px;padding:2px 5px;color:var(--t2);font-family:var(--mono)}
+.win-dots{display:flex;gap:14px;color:var(--t3);font-size:13px;letter-spacing:2px}
+.content{padding:34px 40px 52px;max-width:1260px;width:100%;margin:0 auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;color:var(--deep);text-transform:uppercase}
+h1{font-size:34px;line-height:1.15;font-weight:680;letter-spacing:-.035em;margin:9px 0 0}
+.page-sub{font-size:13px;color:var(--t2);margin-top:9px}
+.page-sub b{color:var(--text);font-weight:650}
+.head-actions{display:flex;align-items:center;gap:9px;padding-bottom:4px}
+.btn{height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:default;white-space:nowrap}
+.btn svg.i{width:14px;height:14px}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--t2)}
+.btn-ghost:hover{border-color:#C9D3CD;color:var(--text)}
+.btn-primary{background:linear-gradient(135deg,#1FD68C,#0FB873);color:#062A1C;border:none;box-shadow:0 7px 20px rgba(16,192,122,.26)}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:36px 0 14px}
+.section-title{font-size:15px;font-weight:680;letter-spacing:-.01em}
+.section-title em{font-size:11px;font-weight:500;color:var(--t3);margin-left:9px;font-style:normal}
+.section-meta{font-size:12px;color:var(--deep);font-weight:600;cursor:default}
+.recent{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+.hero{background:linear-gradient(135deg,#0E4835 0%,#0A2B21 58%,#071C15 100%);border-radius:18px;padding:24px 26px 22px;color:#fff;position:relative;overflow:hidden;box-shadow:0 18px 40px rgba(8,32,25,.17)}
+.hero::before{content:"";position:absolute;width:300px;height:300px;border-radius:50%;right:-110px;top:-150px;background:radial-gradient(circle,rgba(31,214,140,.24),transparent 68%)}
+.hero-top{display:flex;align-items:center;justify-content:space-between;position:relative}
+.hero-label{font-size:10px;font-weight:700;letter-spacing:.18em;color:#8ED9B6;text-transform:uppercase}
+.hero-state{display:flex;align-items:center;gap:7px;font-size:11px;color:#A9D8C3;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:4px 10px}
+.hero-state .live-dot{width:6px;height:6px}
+.hero-name{font-size:25px;font-weight:680;letter-spacing:-.025em;margin:22px 0 0;position:relative}
+.hero-addr{font-family:var(--mono);font-size:12.5px;color:#9FCBB6;margin-top:7px;position:relative}
+.hero-foot{display:flex;align-items:center;justify-content:space-between;margin-top:26px;position:relative}
+.hero-when{font-size:12px;color:#8FBBA7}
+.hero-when b{color:#DFF3E8;font-weight:600}
+.hero-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 15px;border-radius:9px;background:#fff;color:#0A2B21;font-size:12.5px;font-weight:700;box-shadow:0 6px 16px rgba(0,0,0,.16)}
+.hero-glyph{position:absolute;right:22px;bottom:-14px;font-family:var(--mono);font-size:96px;font-weight:700;color:rgba(255,255,255,.045);line-height:1;pointer-events:none}
+.recent-list{background:var(--paper2);border-radius:18px;padding:8px 10px;display:flex;flex-direction:column}
+.mini-row{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:11px;cursor:default;position:relative}
+.mini-row:hover{background:#EDF2EE}
+.mini-row + .mini-row::before{content:"";position:absolute;top:0;left:56px;right:10px;height:1px;background:rgba(16,26,22,.07)}
+.host-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:11px;font-weight:750;color:#fff;flex:none;letter-spacing:-.02em}
+.mini-name{font-size:13px;font-weight:650;line-height:1.25}
+.mini-addr{font-family:var(--mono);font-size:10.5px;color:var(--t3);margin-top:3px}
+.mini-right{margin-left:auto;text-align:right}
+.mini-when{font-size:11px;color:var(--t3)}
+.mini-go{font-size:11px;font-weight:650;color:var(--deep);margin-top:3px}
+.quick{margin-top:16px;background:var(--ink);border-radius:14px;padding:13px 17px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 30px rgba(16,26,22,.14)}
+.quick .prompt{color:var(--brand);font-family:var(--mono);font-size:14px;font-weight:700}
+.quick .cmd{flex:1;font-family:var(--mono);font-size:12.5px;color:#E6F2EC;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quick .caret{display:inline-block;width:6px;height:14px;background:var(--brand);vertical-align:-2px;margin-left:3px}
+.chips{display:flex;gap:6px}
+.chip{font-family:var(--mono);font-size:10px;color:#9FB8AA;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:4px 8px}
+.filters{display:flex;align-items:center;gap:24px;border-bottom:1px solid var(--line);margin-top:36px}
+.filter{font-size:13px;color:var(--t2);padding:0 0 12px;position:relative;cursor:default;white-space:nowrap}
+.filter:hover{color:var(--text)}
+.filter.active{color:var(--text);font-weight:680}
+.filter.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--brand)}
+.filter .n{font-size:11px;color:var(--t3);margin-left:5px;font-family:var(--mono)}
+.filter-tools{margin-left:auto;display:flex;gap:6px;padding-bottom:9px}
+.icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);display:grid;place-items:center;color:var(--t2);background:#fff;cursor:default}
+.icon-btn svg.i{width:14px;height:14px}
+.icon-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.groups{margin-top:10px}
+.group{display:flex;align-items:center;gap:13px;padding:13px 10px;border-radius:11px;cursor:default}
+.group:hover{background:var(--paper2)}
+.group .chev{color:var(--t3);transition:transform .18s}
+.group.open .chev{transform:rotate(90deg)}
+.group .g-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:10.5px;font-weight:750;color:#fff;flex:none}
+.g-name{font-size:13.5px;font-weight:650}
+.g-count{font-size:11px;color:var(--t3);font-family:var(--mono);margin-left:7px}
+.g-meta{margin-left:auto;font-size:11.5px;color:var(--t3)}
+.g-more{color:var(--t3);opacity:0;font-size:15px;letter-spacing:1px;margin-left:8px}
+.group:hover .g-more{opacity:1}
+.sub{padding:0 10px 0 55px;background:var(--paper2);border-radius:10px;margin:2px 0 4px}
+.sub-row{display:flex;align-items:center;gap:11px;height:38px;font-size:12px}
+.sub-row + .sub-row{box-shadow:inset 0 1px 0 rgba(16,26,22,.055)}
+.sub-row .s-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.sub-row .s-addr{font-family:var(--mono);font-size:11px;color:var(--t3);margin-left:10px}
+.sub-row .s-state{margin-left:auto;font-size:11px;font-weight:600}
+.more-link{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:12px;color:var(--deep);font-weight:600;cursor:default}
+@media(max-width:1060px){.recent{grid-template-columns:1fr}.content{padding:28px 26px 44px}.sidebar{width:212px}.filters{gap:16px;overflow-x:auto}}
+@media(max-width:760px){.sidebar{width:66px;padding:20px 10px}.brand-name,.brand-tag,.nav-label,.nav-item span,.nav-badge,.nav-count,.session-card,.side-links{display:none}.nav-item{justify-content:center;padding:0}.nav-item.active::before{left:-10px}.topbar{padding:0 16px}.cmd-search{min-width:0}.win-dots{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true"><defs>
+<symbol id="i-m" viewBox="0 0 24 24"><path d="M3 18V6l6 7 6-7v12"/></symbol>
+<symbol id="i-host" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 6.5h12M5 9.5h3"/></symbol>
+<symbol id="i-grid" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+<symbol id="i-term" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="m5 6 2 2-2 2M9 10h3"/></symbol>
+<symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="8" r="2.5"/><path d="M8 8h6M11 8v2.5M13.5 8v2"/></symbol>
+<symbol id="i-route" viewBox="0 0 16 16"><circle cx="3.5" cy="4" r="1.5"/><circle cx="12.5" cy="12" r="1.5"/><path d="M5 4h4a3 3 0 0 1 0 8H5"/></symbol>
+<symbol id="i-flow" viewBox="0 0 16 16"><path d="M2 5h11m-3-2 3 2-3 2M14 11H3m3-2-3 2 3 2"/></symbol>
+<symbol id="i-list" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h7"/></symbol>
+<symbol id="i-note" viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M5.5 6h5M5.5 9h5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
+<symbol id="i-cog" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.8 3.8l1 1M11.2 11.2l1 1M12.2 3.8l-1 1M4.8 11.2l-1 1"/></symbol>
+<symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3"/><path d="m10.3 10.3 3 3"/></symbol>
+<symbol id="i-chev" viewBox="0 0 16 16"><path d="m6 4 4 4-4 4"/></symbol>
+<symbol id="i-sort" viewBox="0 0 16 16"><path d="M4 3v10m0 0-2-2m2 2 2-2M12 13V3m0 0-2 2m2-2 2 2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h10m-4-4 4 4-4 4"/></symbol>
+<symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2v8m-3-3 3 3 3-3M3 13h10"/></symbol>
+</defs></svg>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark"><svg class="i"><use href="#i-m"/></svg></div><div><div class="brand-name">motty</div><div class="brand-tag">ssh workspace</div></div></div>
+    <div class="nav-label">工作台</div>
+    <div class="nav-item active"><svg class="i"><use href="#i-host"/></svg><span>主机</span><span class="nav-badge">12</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-grid"/></svg><span>工作区</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-term"/></svg><span>会话</span><span class="nav-count">2</span></div>
+    <div class="nav-label">连接资源</div>
+    <div class="nav-item"><svg class="i"><use href="#i-key"/></svg><span>密钥链</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-route"/></svg><span>跳板路由</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-flow"/></svg><span>端口转发</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-list"/></svg><span>已知主机</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-term"/></svg><span>快速命令</span></div>
+    <div class="nav-label">记录</div>
+    <div class="nav-item"><svg class="i"><use href="#i-clock"/></svg><span>会话日志</span></div>
+    <div class="nav-item"><svg class="i"><use href="#i-note"/></svg><span>笔记</span></div>
+    <div class="side-foot">
+      <div class="session-card"><div class="session-head"><span class="live-dot"></span>2 个会话进行中</div><div class="session-row"><span class="live-dot"></span>192.168.188.7</div><div class="session-row"><span class="live-dot"></span>192.152.147.…</div></div>
+      <div class="side-links"><span class="side-link"><svg class="i"><use href="#i-term"/></svg>本地终端</span><span class="side-link" style="margin-left:auto"><svg class="i"><use href="#i-cog"/></svg>设置</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="tabs"><div class="tab active"><span class="dot" style="background:#16C07A"></span>192.168.188.7<span class="x">×</span></div><div class="tab"><span class="dot" style="background:#F0A028"></span>192.152.147.…<span class="x">×</span></div><div class="new-tab">+</div></div>
+      <div class="top-actions"><div class="cmd-search"><svg class="i"><use href="#i-search"/></svg>搜索主机或命令<span class="kbd">Ctrl K</span></div><span class="win-dots">— ▢ ×</span></div>
+    </header>
+    <div class="content">
+      <div class="page-head">
+        <div><div class="eyebrow">Workspace · 工作台</div><h1>主机</h1><div class="page-sub">共 <b>12</b> 台主机，<b>5</b> 个分组 · <b>2</b> 个会话进行中</div></div>
+        <div class="head-actions"><span class="btn btn-ghost"><svg class="i"><use href="#i-download"/></svg>导入 / 导出</span><span class="btn btn-primary"><svg class="i"><use href="#i-plus"/></svg>新建主机</span></div>
+      </div>
+      <div class="section-head"><div class="section-title">最近连接 <em>按上次连接时间</em></div><span class="section-meta">查看全部 →</span></div>
+      <div class="recent">
+        <div class="hero">
+          <div class="hero-top"><span class="hero-label">Last connected</span><span class="hero-state"><span class="live-dot"></span>会话中</span></div>
+          <div class="hero-name">测试服务器 01</div><div class="hero-addr">root@192.168.188.7 · ssh · :22</div>
+          <div class="hero-foot"><span class="hero-when">上次连接 <b>2 小时前</b></span><span class="hero-btn">连接 <svg class="i" style="width:14px;height:14px"><use href="#i-arrow"/></svg></span></div>
+          <div class="hero-glyph">&gt;_</div>
+        </div>
+        <div class="recent-list">
+          <div class="mini-row"><div class="host-ic" style="background:linear-gradient(135deg,#F6B13C,#E08A12)">JB</div><div><div class="mini-name">跳板机</div><div class="mini-addr">ops@10.20.1.6</div></div><div class="mini-right"><div class="mini-when">昨天 18:42</div><div class="mini-go">连接 →</div></div></div>
+          <div class="mini-row"><div class="host-ic" style="background:linear-gradient(135deg,#9B7BF0,#7C4DE0)">DY</div><div><div class="mini-name">抖音服务器 02</div><div class="mini-addr">admin@172.16.8.24</div></div><div class="mini-right"><div class="mini-when">3 天前</div><div class="mini-go">连接 →</div></div></div>
+          <div class="mini-row"><div class="host-ic" style="background:linear-gradient(135deg,#EF7B9B,#D4507E)">HB</div><div><div class="mini-name">货币文化服务器</div><div class="mini-addr">deploy@10.8.3.11</div></div><div class="mini-right"><div class="mini-when">3 天前</div><div class="mini-go">连接 →</div></div></div>
+        </div>
+      </div>
+      <div class="quick"><span class="prompt">&gt;</span><span class="cmd">ssh root@<span class="caret"></span></span><div class="chips"><span class="chip">scp</span><span class="chip">tunnel</span><span class="chip">Ctrl K</span></div></div>
+      <div class="filters">
+        <span class="filter active">全部 <span class="n">12</span></span><span class="filter">测试服务器 <span class="n">4</span></span><span class="filter">货币文化 <span class="n">2</span></span><span class="filter">跳板机 <span class="n">1</span></span><span class="filter">抖音服务器 <span class="n">3</span></span><span class="filter">电源服务器 <span class="n">4</span></span>
+        <div class="filter-tools"><span class="icon-btn on"><svg class="i"><use href="#i-list"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-grid"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-sort"/></svg></span></div>
+      </div>
+      <div class="groups">
+        <div class="group open" data-group><svg class="i chev"><use href="#i-chev"/></svg><div class="g-ic" style="background:linear-gradient(135deg,#4C9BFF,#2C6FE0)">TS</div><div><span class="g-name">测试服务器</span><span class="g-count">4</span></div><span class="g-meta">2 台会话中 · 最近 2 小时前</span><span class="g-more">···</span></div>
+        <div class="sub">
+          <div class="sub-row"><span class="s-dot" style="background:#16C07A"></span>测试服务器 01<span class="s-addr">root@192.168.188.7</span><span class="s-state" style="color:#0B6B4A">会话中</span></div>
+          <div class="sub-row"><span class="s-dot" style="background:#C6D0C9"></span>测试服务器 02<span class="s-addr">root@192.168.188.9</span><span class="s-state" style="color:#9AA8A0">未连接</span></div>
+        </div>
+        <div class="group" data-group><svg class="i chev"><use href="#i-chev"/></svg><div class="g-ic" style="background:linear-gradient(135deg,#EF7B9B,#D4507E)">HB</div><div><span class="g-name">货币文化服务器</span><span class="g-count">2</span></div><span class="g-meta">最近 3 天前</span><span class="g-more">···</span></div>
+        <div class="group" data-group><svg class="i chev"><use href="#i-chev"/></svg><div class="g-ic" style="background:linear-gradient(135deg,#F6B13C,#E08A12)">JB</div><div><span class="g-name">跳板机</span><span class="g-count">1</span></div><span class="g-meta">1 台会话中</span><span class="g-more">···</span></div>
+        <div class="group" data-group><svg class="i chev"><use href="#i-chev"/></svg><div class="g-ic" style="background:linear-gradient(135deg,#9B7BF0,#7C4DE0)">DY</div><div><span class="g-name">抖音服务器</span><span class="g-count">3</span></div><span class="g-meta">最近 3 天前</span><span class="g-more">···</span></div>
+        <div class="group" data-group><svg class="i chev"><use href="#i-chev"/></svg><div class="g-ic" style="background:linear-gradient(135deg,#2FC09A,#128C6E)">DY</div><div><span class="g-name">电源服务器</span><span class="g-count">4</span></div><span class="g-meta">最近 5 天前</span><span class="g-more">···</span></div>
+      </div>
+      <span class="more-link">查看全部 5 个分组 <svg class="i" style="width:13px;height:13px"><use href="#i-arrow"/></svg></span>
+    </div>
+  </main>
+</div>
+<script>
+document.querySelectorAll('.filter').forEach(function(f){f.addEventListener('click',function(){document.querySelectorAll('.filter').forEach(function(x){x.classList.remove('active')});f.classList.add('active')})});
+document.querySelectorAll('[data-group]').forEach(function(g){g.addEventListener('click',function(){g.classList.toggle('open');var s=g.nextElementSibling;if(s&&s.classList.contains('sub'))s.style.display=g.classList.contains('open')?'':'none'})});
+document.querySelectorAll('.icon-btn').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.icon-btn').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})});
+</script>
+</body>
+</html>

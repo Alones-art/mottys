@@ -1,0 +1,752 @@
+package workbench
+
+import (
+	"errors"
+	"fmt"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/vivaui/viva/app"
+	"github.com/vivaui/viva/gfx"
+	"github.com/vivaui/viva/keymap"
+	"motty/internal/sshconn"
+	"motty/internal/term"
+	layoutcore "motty/internal/workspace"
+)
+
+// liveSession opens the selected host and takes its connection to the point
+// where the shell runs, as a server that accepted the credentials would.
+func liveSession(t testing.TB) (*State, *world, *fakeConn, *fakeShell) {
+	return liveSessionWithFiles(t, true)
+}
+
+// liveSessionWithoutFiles is liveSession with the file panel's auto-open
+// disabled, for tests that need a connected terminal without a file client.
+func liveSessionWithoutFiles(t testing.TB) (*State, *world, *fakeConn, *fakeShell) {
+	return liveSessionWithFiles(t, false)
+}
+
+func liveSessionWithFiles(t testing.TB, autoOpen bool) (*State, *world, *fakeConn, *fakeShell) {
+	t.Helper()
+	world, options := newWorld(t)
+	options.Invalidate = func() {}
+	state := newTestState(t, options)
+	state.sftpPanelAutoOpen = autoOpen
+	fake := connect(t, state, world)
+	fake.set(func(s *sshconn.Status) {
+		s.Phase = sshconn.PhaseConnected
+		s.ServerVersion = "SSH-2.0-Test"
+		s.Method = "password"
+	})
+	state.Wake()
+	shell := fake.shell(t)
+	shell.say("\x1b[0m") // the shell speaks, and the terminal takes the window from the connection page
+	state.Wake()
+	return state, world, fake, shell
+}
+
+func terminalHit(state *State, index int) gfx.ID {
+	return hitTerminalList.At(int(state.sessions[index].ID))
+}
+
+func key(state *State, index int, event gfx.KeyEvent) gfx.EventResult {
+	event.Target = terminalHit(state, index)
+	return state.Key(event)
+}
+
+func screenText(state *State, index int) string { return state.sessions[index].term.screen.Text() }
+
+func TestAConnectedSessionOpensAShellTheSizeOfTheTerminal(t *testing.T) {
+	state, _, fake, _ := liveSession(t)
+	geometry := state.layout()
+	if len(fake.configs) != 1 {
+		t.Fatalf("shell opened %d times", len(fake.configs))
+	}
+	if got := fake.configs[0]; got.Cols != geometry.cols || got.Rows != geometry.rows {
+		t.Fatalf("shell opened at %dx%d, want final geometry %dx%d", got.Cols, got.Rows, geometry.cols, geometry.rows)
+	}
+	if cols, rows := state.sessions[0].term.screen.Size(); cols != geometry.cols || rows != geometry.rows {
+		t.Fatalf("terminal = %dx%d, want %dx%d", cols, rows, geometry.cols, geometry.rows)
+	}
+	if geometry.cols < 100 || geometry.rows < 30 {
+		t.Fatalf("a 1400x900 window fits only %dx%d cells", geometry.cols, geometry.rows)
+	}
+	if fake.configs[0].Notify == nil {
+		t.Fatal("the shell cannot wake the window")
+	}
+	screen := screenText(state, 0)
+	for _, hidden := range []string{"Waiting for the server", "Connected to", "Server:", "Authenticated with"} {
+		if strings.Contains(screen, hidden) {
+			t.Errorf("the terminal still contains local connection status %q:\n%s", hidden, screen)
+		}
+	}
+	// Waking again changes nothing and opens no second shell.
+	state.Wake()
+	if len(fake.shells) != 1 {
+		t.Fatalf("shells = %d", len(fake.shells))
+	}
+}
+
+func TestShellOutputReachesTheScreenWithItsColors(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	shell.say("\x1b[01;32mdeploy@prod\x1b[00m:\x1b[01;34m~\x1b[00m$ ls\r\n\x1b[31mred.txt\x1b[0m  plain.txt\r\n")
+	state.Wake()
+	if !strings.Contains(screenText(state, 0), "deploy@prod:~$ ls\nred.txt  plain.txt") {
+		t.Fatalf("screen:\n%s", screenText(state, 0))
+	}
+	canvas, _ := paintedTexts(state)
+	var prompt, files gfx.Text
+	for _, text := range canvas.Texts() {
+		switch {
+		case strings.HasPrefix(text.Value, "deploy@prod"):
+			prompt = text
+		case strings.HasPrefix(text.Value, "red.txt"):
+			files = text
+		}
+	}
+	if !prompt.Style.Mono || prompt.RunCount < 3 {
+		t.Fatalf("the prompt is not a multi-run fixed-pitch line: %+v", prompt)
+	}
+	runs := canvas.TextRuns(prompt)
+	brightGreen := state.pal.ansi[10] // bold 32 is drawn in the bright variant
+	if runs[0].Color != gfx.RGB(brightGreen[0], brightGreen[1], brightGreen[2]) || runs[0].Weight != gfx.WeightBold || runs[0].Column != 0 {
+		t.Errorf("first prompt run = %+v, want bold bright green at column 0", runs[0])
+	}
+	fileRuns := canvas.TextRuns(files)
+	if len(fileRuns) != 2 || fileRuns[0].Color != gfx.RGB(240, 120, 120) || fileRuns[0].Bytes != 9 ||
+		fileRuns[1].Column != 9 || fileRuns[1].Color != state.pal.text {
+		t.Errorf("file runs = %+v, want red \"red.txt\" (and the blanks after it) then plain at column 9", fileRuns)
+	}
+}
+
+func TestTheWindowSizeDecidesTheTerminalSizeOfEverySession(t *testing.T) {
+	state, world, _, shell := liveSession(t)
+	if !state.splitActivePane(layoutcore.Horizontal) {
+		t.Fatal("split right")
+	}
+	state.Click(hitPaneChooseHost)
+	state.Click(hitHostList.At(2))
+	connect(t, state, world) // a second session, still connecting
+	state.Resize(gfx.Size{Width: 1000, Height: 700})
+	geometry := state.layout()
+	if geometry.cols >= 150 {
+		t.Fatalf("1000 points fit %d columns", geometry.cols)
+	}
+	for index := range state.sessions {
+		sessionGeometry := state.layoutForSession(state.sessions[index].ID)
+		if cols, rows := state.sessions[index].term.screen.Size(); cols != sessionGeometry.cols || rows != sessionGeometry.rows {
+			t.Errorf("session %d is %dx%d, want %dx%d", index, cols, rows, sessionGeometry.cols, sessionGeometry.rows)
+		}
+	}
+	firstGeometry := state.layoutForSession(state.sessions[0].ID)
+	if len(shell.resizes) == 0 || shell.resizes[len(shell.resizes)-1] != [2]int{firstGeometry.cols, firstGeometry.rows} {
+		t.Fatalf("the pty was told %v, want its final %dx%d", shell.resizes, firstGeometry.cols, firstGeometry.rows)
+	}
+	resizeCount := len(shell.resizes)
+	state.Resize(gfx.Size{Width: 1000, Height: 700})
+	if len(shell.resizes) != resizeCount {
+		t.Fatalf("an unchanged size resized the pty %d more times", len(shell.resizes)-resizeCount)
+	}
+}
+
+func TestRawKeysBecomeTheBytesAProgramExpects(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	for _, event := range []gfx.KeyEvent{
+		{Key: gfx.KeyEnter}, {Key: gfx.KeyUp}, {Key: gfx.KeyTab}, {Key: gfx.KeyEscape}, {Key: gfx.KeyBackspace},
+		{Modifiers: gfx.ModifierControl, Text: "c"}, {Key: gfx.KeyLeft, Modifiers: gfx.ModifierAlt}, {Key: gfx.KeyF5},
+		{Key: gfx.KeyPageUp}, {Key: gfx.KeyDelete},
+	} {
+		if result := key(state, 0, event); !result.Handled {
+			t.Fatalf("%+v was not taken", event)
+		}
+	}
+	// Option+Left is the protocol's CSI 1;3D, except on macOS where a shell that
+	// negotiated nothing gets macOS Terminal's word movement instead. The product
+	// decides which (see terminal.go), so the expectation follows the platform
+	// rather than pinning one convention: CI's Linux and Windows shards take the
+	// first form, a Mac the second.
+	optionLeft := "\x1b[1;3D"
+	if runtime.GOOS == "darwin" {
+		optionLeft = "\x1bb"
+	}
+	if got, want := shell.typed(), "\r\x1b[A\t\x1b\x7f\x03"+optionLeft+"\x1b[15~\x1b[5~\x1b[3~"; got != want {
+		t.Fatalf("sent %q, want %q", got, want)
+	}
+
+	// An application that asked for application cursor keys gets SS3 arrows.
+	shell.say("\x1b[?1h")
+	state.Wake()
+	before := len(shell.typed())
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyUp})
+	if got := shell.typed()[before:]; got != "\x1bOA" {
+		t.Fatalf("application-mode Up = %q", got)
+	}
+	// Command chords are the application's, not the program's.
+	before = len(shell.typed())
+	key(state, 0, gfx.KeyEvent{Modifiers: gfx.ModifierMeta, Text: "c"})
+	if len(shell.typed()) != before {
+		t.Fatal("a Command chord reached the program")
+	}
+}
+
+func TestTextPasteAndInputMethodsReachTheProgram(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	state.Paint(&gfx.Canvas{}, gfx.Size{Width: 1400, Height: 900})
+	context := app.TextInputContext{ID: terminalHit(state, 0), Terminal: true}
+	input := state.TerminalInput(context)
+	if input == nil || input.OnEvent == nil {
+		t.Fatal("no text input for the focused terminal")
+	}
+	if input.FontSize != state.terminalFontSize || input.Bounds.Height != state.cellHeight {
+		t.Fatalf("input = %+v", input)
+	}
+	if state.TerminalInput(app.TextInputContext{ID: hitTerminalList.At(77777), Terminal: true}) != nil {
+		t.Fatal("a text input for a terminal that does not exist")
+	}
+
+	// The preedit surface sits on the cursor cell.
+	shell.say("abc")
+	state.Wake()
+	cursor := state.sessions[0].term.screen.Cursor()
+	moved := state.TerminalInput(context)
+	geometry := state.layout()
+	wantX := geometry.left + float32(cursor.X)*state.cellWidth
+	if moved.Bounds.X != wantX || moved.Bounds.Y != geometry.top+float32(cursor.Y)*state.cellHeight {
+		t.Fatalf("input at %+v, want x=%v for cursor (%d,%d)", moved.Bounds, wantX, cursor.X, cursor.Y)
+	}
+
+	next, err := input.OnEvent(app.TextEvent{Kind: app.TextSetMarked, Text: "ni", MarkedSelection: app.TextRange{Start: 2, End: 2}})
+	if err != nil || !next.Composing || next.Value != "ni" || next.Composition != (app.TextRange{End: 2}) {
+		t.Fatalf("composition = %+v, %v", next, err)
+	}
+	if shell.typed() != "" {
+		t.Fatalf("a composition leaked to the program: %q", shell.typed())
+	}
+	next, _ = input.OnEvent(app.TextEvent{Kind: app.TextInsert, Text: "你"})
+	if next.Composing || next.Value != "" || shell.typed() != "你" {
+		t.Fatalf("commit left %+v with %q sent", next, shell.typed())
+	}
+	input.OnEvent(app.TextEvent{Kind: app.TextSetMarked, Text: "x", MarkedSelection: app.TextRange{Start: 1, End: 1}})
+	if next, _ = input.OnEvent(app.TextEvent{Kind: app.TextUnmark}); next.Composing {
+		t.Fatal("unmarking left the composition")
+	}
+
+	// A paste is wrapped only when the program asked for bracketed paste.
+	input.OnEvent(app.TextEvent{Kind: app.TextPaste, Text: "a\nb"})
+	if got := shell.typed(); got != "你a\rb" {
+		t.Fatalf("plain paste sent %q", got)
+	}
+	shell.say("\x1b[?2004h")
+	state.Wake()
+	input.OnEvent(app.TextEvent{Kind: app.TextPaste, Text: "ls\n"})
+	if got := shell.typed(); !strings.HasSuffix(got, "\x1b[200~ls\r\x1b[201~") {
+		t.Fatalf("bracketed paste sent %q", got)
+	}
+}
+
+func TestTheProgramsAnswersGoBackToIt(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	shell.say("\x1b[c\x1b[6n")
+	state.Wake()
+	got := shell.typed()
+	if !strings.HasPrefix(got, "\x1b[?62;22c\x1b[") || !strings.HasSuffix(got, "R") {
+		t.Fatalf("answers = %q", got)
+	}
+}
+
+func TestAnEndedSessionSaysSoAndEnterConnectsAgain(t *testing.T) {
+	// Without the default auto-open files panel, whose attached view would keep
+	// the ended connection's release path busy.
+	state, world, fake, shell := liveSessionWithoutFiles(t)
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyEnter}) // the user typed; the shell did not end by itself
+	shell.say("bye\r\n")
+	shell.end(&exitStatus{3})
+	state.Wake()
+	screen := screenText(state, 0)
+	if !strings.Contains(screen, "bye") || !strings.Contains(screen, "[Session ended with exit status 3]") ||
+		!strings.Contains(screen, "Press Enter to connect again.") {
+		t.Fatalf("screen:\n%s", screen)
+	}
+	if !shell.closed || fake.canceled == 0 || state.sessions[0].term.shell != nil {
+		t.Fatalf("the ended shell was not released: closed=%v canceled=%d", shell.closed, fake.canceled)
+	}
+	if status, _ := state.sessionStatus(&state.sessions[0]); status != state.messages.HostStateIdle {
+		t.Fatalf("status = %q", status)
+	}
+
+	// Typing at a dead session does nothing; Enter dials the same host in the same tab.
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyUp})
+	if len(world.conns) != 1 {
+		t.Fatal("a key redialed")
+	}
+	if result := key(state, 0, gfx.KeyEvent{Key: gfx.KeyEnter}); !result.Handled || !result.Repaint {
+		t.Fatalf("Enter result = %+v", result)
+	}
+	if len(world.conns) != 2 || len(state.sessions) != 1 {
+		t.Fatalf("conns=%d sessions=%d, want a second connection in the same tab", len(world.conns), len(state.sessions))
+	}
+	screen = screenText(state, 0)
+	if !strings.Contains(screen, "bye") || strings.Contains(screen, "Waiting for the server") {
+		t.Fatalf("the tab did not keep its history clean while starting a new attempt:\n%s", screen)
+	}
+}
+
+// A server that only allows SFTP accepts the shell and ends it at once. Nobody
+// wrote to that shell, so the server ended it, and the connection stays for the
+// file panel as it does when a server refuses the shell request.
+func TestAShellTheServerEndsKeepsTheConnectionForTheFiles(t *testing.T) {
+	state, session, fake, _ := openTestSFTP(t)
+	shell := fake.shell(t)
+	shell.say("This service allows sftp connections only.\r\n")
+	shell.end(&exitStatus{1})
+	state.Wake()
+	if !session.term.ended || fake.canceled != 0 || session.files == nil {
+		t.Fatalf("ended=%v canceled=%d files=%v, want the connection kept for the file panel", session.term.ended, fake.canceled, session.files != nil)
+	}
+	state.openSFTPDirectory(session.files, "/home/test/docs")
+	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy && len(view.rows) == 1 })
+
+	// Closing the panel does not take the connection with it: Files can be opened again.
+	state.releaseIdleSFTP(session)
+	if fake.canceled != 0 {
+		t.Fatalf("canceled=%d, want the connection kept until the tab closes", fake.canceled)
+	}
+}
+
+// When the user ends the shell, the file panel still keeps the connection up
+// until it is closed, like OpenSSH waiting for its other channels.
+func TestTheConnectionOutlivesAUsersShellWhileTheFilesUseIt(t *testing.T) {
+	state, session, fake, _ := openTestSFTP(t)
+	shell := fake.shell(t)
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyEnter})
+	shell.end(&exitStatus{0})
+	state.Wake()
+	if !session.term.ended || fake.canceled != 0 || session.files == nil {
+		t.Fatalf("ended=%v canceled=%d files=%v, want the connection kept for the file panel", session.term.ended, fake.canceled, session.files != nil)
+	}
+	state.releaseIdleSFTP(session)
+	if session.files != nil || fake.canceled == 0 {
+		t.Fatalf("files=%v canceled=%d, want the connection closed with the last of its users", session.files != nil, fake.canceled)
+	}
+}
+
+// exitStatus is a stand-in for *ssh.ExitError.
+type exitStatus struct{ code int }
+
+func (e *exitStatus) Error() string   { return "exit status" }
+func (e *exitStatus) ExitStatus() int { return e.code }
+
+func TestAFailedConnectionStaysOnScreenAndOffersAnotherTry(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	fake := connect(t, state, world)
+	fake.set(func(s *sshconn.Status) { s.Phase = sshconn.PhaseFailed; s.Err = errors.New("connection refused") })
+	state.Wake()
+	screen := screenText(state, 0)
+	if !strings.Contains(screen, "Connection failed: connection refused") || !strings.Contains(screen, "Press Enter to connect again.") {
+		t.Fatalf("screen:\n%s", screen)
+	}
+	if len(fake.shells) != 0 {
+		t.Fatal("a failed connection opened a shell")
+	}
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyEnter})
+	if len(world.conns) != 2 {
+		t.Fatal("Enter did not dial again")
+	}
+}
+
+func TestAShellThatCannotStartIsReportedOnTheScreen(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	fake := connect(t, state, world)
+	fake.shellErr = errors.New("pty refused")
+	fake.set(func(s *sshconn.Status) { s.Phase = sshconn.PhaseConnected })
+	state.Wake()
+	if !strings.Contains(screenText(state, 0), "Could not start a shell: pty refused") || state.sessions[0].tone != toneFail {
+		t.Fatalf("screen:\n%s", screenText(state, 0))
+	}
+}
+
+func TestClosingATabReleasesItsConnectionAndPicksANeighbour(t *testing.T) {
+	state, world, fake, shell := liveSession(t)
+	state.Click(hitHosts)
+	state.Click(hitHostList.At(2))
+	connect(t, state, world)
+	state.Click(hitHosts)
+	state.Click(hitHostList.At(3))
+	connect(t, state, world)
+	if len(state.sessions) != 3 {
+		t.Fatalf("sessions = %d", len(state.sessions))
+	}
+	ids := []uint32{state.sessions[0].ID, state.sessions[1].ID, state.sessions[2].ID}
+
+	// Closing the first tab, which is not active, keeps the active one.
+	state.Click(hitTabCloseList.At(int(ids[0])))
+	confirmRunningClose(state)
+	if !shell.closed || fake.canceled == 0 {
+		t.Fatal("the closed tab's shell and connection were not released")
+	}
+	if len(state.sessions) != 2 || state.activeSessionID != ids[2] || len(state.tabOptions) != 2 {
+		t.Fatalf("sessions=%d active=%d tabs=%d", len(state.sessions), state.activeSessionID, len(state.tabOptions))
+	}
+	// Closing the active one moves to the tab that took its place.
+	state.Click(hitTabCloseList.At(int(ids[2])))
+	if state.activeSessionID != ids[1] || state.activeSection != sectionTerminal {
+		t.Fatalf("active=%d section=%d", state.activeSessionID, state.activeSection)
+	}
+	state.Click(hitTabCloseList.At(int(ids[1])))
+	if len(state.sessions) != 0 || state.activeSection != sectionHosts || state.activeSessionID != 0 {
+		t.Fatalf("closing the last tab left sessions=%d section=%d", len(state.sessions), state.activeSection)
+	}
+	state.Click(hitTabCloseList.At(999)) // unknown: ignored
+}
+
+func TestDigitChordsDriveTheTabs(t *testing.T) {
+	state, world, _, _ := liveSession(t)
+	state.Click(hitHosts)
+	state.Click(hitHostList.At(2))
+	connect(t, state, world)
+	first, second := state.sessions[0].ID, state.sessions[1].ID
+	state.setTabNumbers(true)
+
+	// A tab is a workspace on the tab bar: selecting one has to move the bar,
+	// not only the session the keyboard goes to.
+	workspaces := state.deck.Workspaces(nil)
+	digit := func(text string) gfx.EventResult {
+		return state.Shortcut(gfx.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: keymap.Primary, Text: text})
+	}
+	digit("1")
+	if state.activeSessionID != first || state.deck.ActiveWorkspace() != workspaces[0].ID {
+		t.Fatal("the first digit did not select the first tab")
+	}
+	digit("2")
+	if state.activeSessionID != second || state.deck.ActiveWorkspace() != workspaces[1].ID {
+		t.Fatal("the second digit did not select the second tab")
+	}
+	if result := digit("9"); result.Handled != (keymap.Primary == gfx.ModifierMeta) {
+		t.Fatalf("a digit with no tab behind it: handled=%v", result.Handled)
+	}
+	if state.activeSessionID != second {
+		t.Fatal("a missing tab changed the selection")
+	}
+	state.Shortcut(gfx.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: keymap.Primary, Text: "t"})
+	if state.modal != modalCommandPalette || !state.commandPalette.connect {
+		t.Fatal("new-tab shortcut did not open the connection picker")
+	}
+	state.Click(hitCommandPaletteClose)
+	state.Shortcut(gfx.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: keymap.Primary, Text: "w"})
+	if len(state.sessions) != 1 || state.activeSessionID != first {
+		t.Fatalf("close-tab shortcut left sessions=%d active=%d", len(state.sessions), state.activeSessionID)
+	}
+}
+
+func TestTheWheelScrollsBackAndTypingReturnsToTheBottom(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	var output strings.Builder
+	for line := 1; line <= 200; line++ {
+		output.WriteString("line ")
+		output.WriteString(strings.Repeat("x", line%7))
+		output.WriteString("\r\n")
+	}
+	shell.say(output.String())
+	state.Wake()
+	t0 := state.sessions[0].term
+	if t0.screen.Scrollback() < 100 {
+		t.Fatalf("scrollback = %d", t0.screen.Scrollback())
+	}
+
+	// A notch of three lines upward reveals older output: negative deltas.
+	result := state.Scroll(gfx.ScrollEvent{DeltaY: -3 * state.cellHeight, Precise: true})
+	if !result.Handled || !result.Repaint || t0.screen.ViewOffset() != 3 {
+		t.Fatalf("scroll up: %+v, offset %d", result, t0.screen.ViewOffset())
+	}
+	// Sub-line travel accumulates instead of being lost.
+	for range 4 {
+		state.Scroll(gfx.ScrollEvent{DeltaY: state.cellHeight / 4, Precise: true})
+	}
+	if t0.screen.ViewOffset() != 2 {
+		t.Fatalf("after a line of fractional travel the offset is %d, want 2", t0.screen.ViewOffset())
+	}
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyEnter})
+	if t0.screen.ViewOffset() != 0 {
+		t.Fatal("typing did not return to the bottom")
+	}
+
+	// Shift+PageUp pages through history without touching the program.
+	typed := len(shell.typed())
+	key(state, 0, gfx.KeyEvent{Key: gfx.KeyPageUp, Modifiers: gfx.ModifierShift})
+	_, rows := t0.screen.Size()
+	if t0.screen.ViewOffset() != rows-1 || len(shell.typed()) != typed {
+		t.Fatalf("Shift+PageUp: offset %d, sent %q", t0.screen.ViewOffset(), shell.typed()[typed:])
+	}
+
+	// On the alternate screen the wheel is arrow keys unless the program turned
+	// alternate scroll mode off or asked for the mouse itself.
+	t0.screen.ScrollToBottom()
+	shell.say("\x1b[?1049h")
+	state.Wake()
+	typed = len(shell.typed())
+	state.Scroll(gfx.ScrollEvent{DeltaY: 2 * state.cellHeight, Precise: true})
+	if got := shell.typed()[typed:]; got != "\x1b[B\x1b[B" {
+		t.Fatalf("wheel on the alternate screen sent %q", got)
+	}
+	shell.say("\x1b[?1007l")
+	state.Wake()
+	typed = len(shell.typed())
+	state.Scroll(gfx.ScrollEvent{DeltaY: 2 * state.cellHeight, Precise: true})
+	if got := shell.typed()[typed:]; got != "" {
+		t.Fatalf("wheel with alternate-scroll mode reset sent %q", got)
+	}
+	// The wheel does not reach the terminal off the terminal page: the host list
+	// may take it, but the terminal's view stays where it was.
+	state.Click(hitHosts)
+	offset, typed := t0.screen.ViewOffset(), len(shell.typed())
+	state.Scroll(gfx.ScrollEvent{DeltaY: 100})
+	if t0.screen.ViewOffset() != offset || len(shell.typed()) != typed {
+		t.Fatal("a wheel over the host list moved or typed into the terminal")
+	}
+}
+
+func TestTheTerminalHasTheKeyboardWhenItAppears(t *testing.T) {
+	state, _, _, _ := liveSession(t)
+	canvas, _ := paintedTexts(state)
+	hit, ok := hitByID(canvas, terminalHit(state, 0))
+	if !ok || hit.Role != gfx.RoleTerminal || !hit.Autofocus || !hit.Focusable {
+		t.Fatalf("terminal hit = %+v, %v", hit, ok)
+	}
+	if hit.Label != "Terminal deploy@prod.example.com:22" {
+		t.Fatalf("label = %q", hit.Label)
+	}
+	geometry := state.layout()
+	workspace := state.workspacePixelBounds(state.viewport)
+	if hit.Bounds != geometry.area || hit.Bounds.X != workspace.X || hit.Bounds.X+hit.Bounds.Width != workspace.X+workspace.Width || hit.Bounds.Y+hit.Bounds.Height != 900 {
+		t.Fatalf("the terminal %+v does not fill the window below the bars", hit.Bounds)
+	}
+	// Window-bar buttons leave the keyboard where it is.
+	for _, id := range []gfx.ID{hitHome, hitNewTab, hitTheme, hitWindowSettings, hitTabCloseList.At(int(state.sessions[0].ID))} {
+		bar, ok := hitByID(canvas, id)
+		if !ok || bar.Focusable {
+			t.Errorf("hit %d = %+v, %v; want a mouse-only button", id, bar, ok)
+		}
+	}
+}
+
+func TestActiveToolRailOmitsConnectionIdentityAndStatus(t *testing.T) {
+	state, _, fake, _ := liveSession(t)
+	_, texts := paintedTexts(state)
+	if contains(texts, "deploy@prod.example.com:22") || contains(texts, "Connected") {
+		t.Fatalf("a plain connection repeats itself in the bar: %q", texts)
+	}
+	fake.set(func(s *sshconn.Status) { s.Phase = sshconn.PhaseClosed })
+	state.Wake()
+	_, texts = paintedTexts(state)
+	if contains(texts, "Not connected") {
+		t.Fatalf("the active tool rail still contains connection status: %q", texts)
+	}
+}
+
+var _ = term.New
+
+func TestAnIdleConnectedTerminalAsksForNoFrames(t *testing.T) {
+	world, options := newWorld(t)
+	// Without the default auto-open files panel, whose worker would keep the
+	// window asking for frames.
+	state := newTestState(t, options)
+	state.sftpPanelAutoOpen = false
+	fake := connect(t, state, world)
+
+	// While the connection is being made its page and the tab's light animate,
+	// at their own pace rather than the display's.
+	canvas, _ := paintedTexts(state)
+	if delay, ok := canvas.NextFrame(); !ok || delay < min(pulseStep, connectionSignalStep) {
+		t.Fatalf("a connecting session asks for its next frame after %v, %v; want a paced request", delay, ok)
+	}
+	fake.set(func(s *sshconn.Status) { s.Phase = sshconn.PhaseConnected })
+	state.Wake()
+	fake.shell(t).say("$ ")
+	state.Wake()
+
+	// Once connected, nothing in the window moves: no spinner, no cursor blink.
+	canvas, _ = paintedTexts(state)
+	if delay, ok := canvas.NextFrame(); ok {
+		t.Fatalf("an idle connected terminal keeps asking for frames (next in %v)", delay)
+	}
+}
+
+func TestALargeFloodIsParsedOverSeveralWakes(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	invalidations := 0
+	state.options.Invalidate = func() { invalidations++ }
+	session := &state.sessions[0]
+	// No time to spare: a Wake parses one slice and no more, whatever the speed
+	// of the machine running the test.
+	session.term.pumpBudget = 0
+	// The escape sequence starts exactly on a slice boundary, so the parser
+	// has to carry its state into the next pump.
+	payload := strings.Repeat("a", pumpSlice-1) + "\x1b[31mred\x1b[0m\r\n"
+	shell.say(payload)
+	state.Wake()
+	if session.term.rx == nil || len(session.term.rx) == 0 {
+		t.Fatal("the whole flood was parsed in one Wake")
+	}
+	if invalidations == 0 {
+		t.Fatal("no continuation frame was requested")
+	}
+	for attempts := 0; len(session.term.rx) > 0 && attempts < 100; attempts++ {
+		state.Wake()
+	}
+	if len(session.term.rx) != 0 {
+		t.Fatalf("%d bytes still queued after 100 Wakes", len(session.term.rx))
+	}
+	if text := session.term.screen.Text(); !strings.Contains(text, "red") {
+		t.Fatalf("the split escape sequence did not reach the screen: %q", text)
+	}
+}
+
+func TestALargeFloodIsParsedInOneWakeWithoutAnInvalidator(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	state.options.Invalidate = nil
+	shell.say(strings.Repeat("x", 2*pumpSlice))
+	state.Wake()
+	if session := &state.sessions[0]; len(session.term.rx) != 0 {
+		t.Fatalf("%d bytes remained without an Invalidator", len(session.term.rx))
+	}
+}
+
+// oscRGB spells a color the way an OSC 10/11 reply does: sixteen bits a channel,
+// each 8-bit value repeated.
+func oscRGB(c gfx.Color) string {
+	channel := func(v float32) string { return fmt.Sprintf("%02x%02x", uint8(v*255+0.5), uint8(v*255+0.5)) }
+	return channel(c.Red) + "/" + channel(c.Green) + "/" + channel(c.Blue)
+}
+
+// A program that asks the terminal for its colors with OSC 10 and 11 (Codex,
+// Helix, bat and others) picks a light or a dark theme from the answer, so the
+// answer has to be the colors the terminal is drawn with now: from the first
+// frame, after the appearance changes, and under a chosen color scheme.
+func TestTerminalAnswersColorQueriesWithItsLook(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	ask := func() string {
+		before := len(shell.typed())
+		shell.say("\x1b]10;?\x1b\\\x1b]11;?\x1b\\")
+		state.Wake()
+		return shell.typed()[before:]
+	}
+	reply := func(foreground, background string) string {
+		return "\x1b]10;rgb:" + foreground + "\x1b\\\x1b]11;rgb:" + background + "\x1b\\"
+	}
+	answers := map[appearance]string{
+		appearanceLight: reply(oscRGB(lightPalette.termFG), oscRGB(lightPalette.terminal)),
+		appearanceDark:  reply(oscRGB(darkPalette.termFG), oscRGB(darkPalette.terminal)),
+	}
+	if got, want := ask(), answers[state.appearance]; got != want {
+		t.Fatalf("a new session answered %q, want %q", got, want)
+	}
+	for _, look := range []appearance{appearanceLight, appearanceDark, appearanceLight} {
+		state.setAppearance(look)
+		if got, want := ask(), answers[look]; got != want {
+			t.Fatalf("after switching to appearance %v the terminal answered %q, want %q", look, got, want)
+		}
+	}
+	state.setTerminalScheme("dracula")
+	if got, want := ask(), reply("f8f8/f8f8/f2f2", "2828/2a2a/3636"); got != want {
+		t.Fatalf("under the Dracula scheme the terminal answered %q, want %q", got, want)
+	}
+}
+
+// The private terminal of the AI provider login answers the same queries, so a
+// login program picks its theme from the colors the dialog is painted with.
+func TestLoginTerminalAnswersColorQueries(t *testing.T) {
+	state, _, _, _ := liveSession(t)
+	login := &aiCLILogin{term: newTerminalWithScrollback(90, 16, 200), cancel: func() {}}
+	var replies []string
+	login.term.screen.SetReply(func(reply []byte) { replies = append(replies, string(reply)) })
+	state.ai.login = login
+	state.reportTerminalColors(login.term)
+	ask := func() string {
+		replies = nil
+		login.term.screen.Write([]byte("\x1b]11;?\x1b\\"))
+		return strings.Join(replies, "")
+	}
+	state.setAppearance(appearanceLight)
+	if got, want := ask(), "\x1b]11;rgb:"+oscRGB(lightPalette.terminal)+"\x1b\\"; got != want {
+		t.Fatalf("light: the login terminal answered %q, want %q", got, want)
+	}
+	state.setAppearance(appearanceDark)
+	if got, want := ask(), "\x1b]11;rgb:"+oscRGB(darkPalette.terminal)+"\x1b\\"; got != want {
+		t.Fatalf("dark: the login terminal answered %q, want %q", got, want)
+	}
+}
+
+func TestTerminalEscapeWithOpenSFTPDoesNotCloseSFTP(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	session := &state.sessions[0]
+	state.openSFTP(session)
+	if session.files == nil {
+		t.Fatal("SFTP panel failed to open")
+	}
+
+	shell.input = nil
+	result := key(state, 0, gfx.KeyEvent{Key: gfx.KeyEscape})
+	if !result.Handled {
+		t.Fatal("Escape in terminal was not handled")
+	}
+	if session.files == nil {
+		t.Fatal("Escape in terminal closed the SFTP panel")
+	}
+	if got := string(shell.input); got != "\x1b" {
+		t.Fatalf("shell input = %q, want Escape (\\x1b)", got)
+	}
+
+	// Pressing Escape while focused inside the SFTP panel should still close it.
+	result = state.Key(gfx.KeyEvent{Key: gfx.KeyEscape, Target: hitSFTPEntryList.At(0)})
+	if !result.Handled {
+		t.Fatal("Escape inside SFTP panel was not handled")
+	}
+	if session.files != nil {
+		t.Fatal("Escape inside SFTP panel did not close the panel")
+	}
+}
+
+// An open editor belongs to the panel: Escape typed in the terminal must reach
+// the shell and leave the editor alone.
+func TestTerminalEscapeWithAnOpenEditorLeavesItAlone(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	session := &state.sessions[0]
+	state.openSFTP(session)
+	if session.files == nil {
+		t.Fatal("SFTP panel failed to open")
+	}
+	session.files.editPath = "/home/test/notes.txt"
+	shell.input = nil
+
+	result := key(state, 0, gfx.KeyEvent{Key: gfx.KeyEscape})
+	if !result.Handled {
+		t.Fatal("Escape in terminal was not handled")
+	}
+	if session.files == nil || session.files.editPath == "" {
+		t.Fatal("Escape in terminal closed the editor")
+	}
+	if got := string(shell.input); got != "\x1b" {
+		t.Fatalf("shell input = %q, want Escape (\\x1b)", got)
+	}
+}
+
+// The terminal is the only focus that keeps its Escape; away from it the panel
+// still closes.
+func TestEscapeOutsideThePanelStillClosesIt(t *testing.T) {
+	state, _, _, _ := liveSession(t)
+	session := &state.sessions[0]
+	state.openSFTP(session)
+	if session.files == nil {
+		t.Fatal("SFTP panel failed to open")
+	}
+	workspace := state.deck.ActiveWorkspace()
+	if result := state.Key(gfx.KeyEvent{Key: gfx.KeyEscape, Target: hitTabList.At(int(workspace))}); !result.Handled {
+		t.Fatal("Escape outside the panel was not handled")
+	}
+	if session.files != nil {
+		t.Fatal("Escape outside the panel did not close it")
+	}
+}

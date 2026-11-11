@@ -1,0 +1,1186 @@
+// Package i18n holds the workbench string catalog. Language selection is
+// plain data: the state carries one Messages value and every paint reads
+// from it, so switching languages is one assignment plus a repaint.
+//
+// The catalogs live one per language: english.go, chinese.go, and the
+// generated traditional.go (see tools/zhtw/gen.py). The message structs stay
+// with the area they describe (terminal_tools.go, ai_panel.go, and so on);
+// adding a string touches its struct and every catalog.
+package i18n
+
+import "strings"
+
+type HostGroupMessages struct {
+	ExpandAll, CollapseAll                                   string
+	Actions, Rename, NewChild, NewFolder, Name, Save, Create string
+	InvalidName, Conflict, Missing                           string
+	Move, Delete, Parent, TopLevel, Cycle                    string
+	Pin, Unpin, MoveUp, MoveDown                             string
+	KeepParentFmt, KeepUngrouped                             string
+}
+
+// Language selects one catalog entry.
+type Language uint8
+
+const (
+	English Language = iota
+	Chinese
+	TraditionalChinese
+)
+
+// String returns the BCP-ish tag for persistence or debugging.
+func (language Language) String() string {
+	switch language {
+	case Chinese:
+		return "zh-CN"
+	case TraditionalChinese:
+		return "zh-TW"
+	default:
+		return "en"
+	}
+}
+
+// ChineseVariant picks the catalog a Chinese language tag reads: "zh-TW",
+// "zh-Hant-HK" and a locale like "zh_TW.UTF-8" are Traditional, and a tag that
+// names neither a script nor a Traditional region is Simplified. A script wins
+// over a region, so "zh-Hans-TW" stays Simplified.
+func ChineseVariant(tag string) Language {
+	tag, _, _ = strings.Cut(strings.ToLower(tag), ".")
+	for _, part := range strings.FieldsFunc(tag, func(r rune) bool { return r == '-' || r == '_' }) {
+		switch part {
+		case "hans":
+			return Chinese
+		case "hant":
+			return TraditionalChinese
+		}
+	}
+	for _, part := range strings.FieldsFunc(tag, func(r rune) bool { return r == '-' || r == '_' }) {
+		switch part {
+		case "tw", "hk", "mo":
+			return TraditionalChinese
+		}
+	}
+	return Chinese
+}
+
+// Messages is the complete set of user-visible workbench strings. Adding a
+// language means adding one field initialization, not touching call sites.
+type Messages struct {
+	ActionFeedback ActionFeedbackMessages
+	Monitor        MonitorMessages
+	Dashboard      DashboardMessages
+	FileWindow     FileWindowMessages
+	SFTPWindow     SFTPWindowMessages
+	Transfers      TransferCenterMessages
+	// LocalProxy holds the compact SSH reverse-proxy panel.
+	LocalProxy LocalProxyMessages
+	// CodeEditor holds the code editor of the file window: find, replace and the
+	// status line.
+	CodeEditor CodeEditorMessages
+	// AIPanel and AISettings hold the assistant's texts; see ai_panel.go and
+	// ai_settings.go.
+	AIPanel    AIPanelMessages
+	AISettings AISettingsMessages
+	// Tools holds the terminal tools' texts; see terminal_tools.go.
+	Tools    ToolsMessages
+	Toolbars ToolbarMessages
+	// TerminalInput holds the terminal command and character-handling notices.
+	TerminalInput TerminalInputMessages
+	// Autofill holds the autofill rules' texts; see autofill.go.
+	Autofill AutofillMessages
+	// Credentials holds the saved passwords' texts; see credentials.go.
+	Credentials CredentialMessages
+	// History holds the command history's texts; see history.go.
+	History HistoryMessages
+	// SessionLogs holds the local session-log page's texts; see session_logs.go.
+	SessionLogs SessionLogsMessages
+	// Completion holds the command completion's texts; see completion.go.
+	Completion CompletionMessages
+	// SSHSync holds the texts of the sync with the OpenSSH config; see ssh_sync.go.
+	SSHSync SSHSyncMessages
+	// Desktop holds the remote-desktop tabs' texts; see desktop.go.
+	Desktop DesktopMessages
+	// About holds the About page's texts; see about.go.
+	About AboutMessages
+
+	// Window and sections.
+
+	// Navigation.
+	NavHosts                  string
+	NavWorkspaces             string
+	NavKeychain               string
+	NavProxies                string
+	NavSnippets               string
+	NavPortForwarding         string
+	NavKnownHosts             string
+	NavSettings               string
+	NavDebug                  string
+	NavSearch                 string
+	SearchPlaceholder         string
+	CommandPaletteTitle       string
+	CommandPalettePlaceholder string
+	CommandPaletteEmpty       string
+	CommandSwitchSessionFmt   string
+	NewWindow                 string
+
+	// Saved multi-host workspace templates.
+	WorkspaceLibraryTitle                 string
+	WorkspaceLibraryDescription           string
+	WorkspaceLibraryEmpty                 string
+	WorkspaceLibraryEmptySub              string
+	WorkspaceEnter                        string
+	WorkspaceOpenHint                     string
+	WorkspaceTemplateActions              string
+	WorkspaceTemplateEdit                 string
+	WorkspaceTemplateDelete               string
+	WorkspaceSingleHost                   string
+	WorkspaceSingleColumn                 string
+	WorkspaceColumnsFmt                   string
+	WorkspaceLayoutMainRight              string
+	WorkspaceLayoutMainBottom             string
+	WorkspaceLayoutTabs                   string
+	WorkspaceTemplateHostCountFmt         string
+	WorkspaceTemplateMissingFmt           string
+	WorkspaceTemplateMissingListFmt       string
+	WorkspaceTemplateNoHosts              string
+	WorkspaceTemplateApplyFailed          string
+	WorkspaceNew                          string
+	WorkspaceDraftTemporary               string
+	WorkspaceDraftFixed                   string
+	WorkspaceDraftTitleTemporary          string
+	WorkspaceDraftTitleFixed              string
+	WorkspaceDraftTitleEdit               string
+	WorkspaceDraftDescription             string
+	WorkspaceDraftEditDescription         string
+	WorkspaceDraftName                    string
+	WorkspaceDraftNamePlaceholder         string
+	WorkspaceDraftHosts                   string
+	WorkspaceDraftHostSearch              string
+	WorkspaceDraftSelectedFmt             string
+	WorkspaceDraftLimit                   string
+	WorkspaceDraftColumns                 string
+	WorkspaceDraftHostsRequired           string
+	WorkspaceDraftEmptyPane               string
+	WorkspaceDraftMissingSession          string
+	WorkspaceDraftMissingHost             string
+	WorkspaceDraftDuplicateHost           string
+	WorkspaceLocalTerminalHint            string
+	WorkspaceDraftNameRequired            string
+	WorkspaceDraftLaunch                  string
+	WorkspaceDraftSave                    string
+	WorkspaceDraftSaveChanges             string
+	WorkspaceDraftNoHosts                 string
+	WorkspaceDraftSavedFmt                string
+	WorkspaceDraftTemporaryName           string
+	WorkspaceSaveMenu                     string
+	WorkspaceSaveTitle                    string
+	WorkspaceSaveDescriptionFmt           string
+	WorkspaceSaveFailed                   string
+	WorkspaceTemplateEditedFmt            string
+	WorkspaceTemplateEditMissing          string
+	WorkspaceTemplateDeleteTitle          string
+	WorkspaceTemplateDeleteDescriptionFmt string
+	WorkspaceTemplateDeleteConfirm        string
+	WorkspaceTemplateDeleteFailed         string
+	WorkspaceTemplateDeletedFmt           string
+	WorkspaceTemplateDeleteMissing        string
+	WorkspaceLayoutHint                   string
+	WorkspaceTemplateLayoutHint           string
+	WorkspaceLayoutStale                  string
+	WorkspaceCardReorderHint              string
+	WorkspaceBroadcastWaitingFmt          string
+	WorkspacePaneTools                    string
+	WorkspaceHeaderBroadcast              string
+	WorkspaceHeaderBroadcastingFmt        string
+	WorkspaceDraftPreview                 string
+	WorkspaceDraftPreviewEmpty            string
+	WorkspaceDraftTemporaryHint           string
+	WorkspaceDraftFixedHint               string
+	WorkspaceDraftRemoveFmt               string
+	WorkspaceHeaderBack                   string
+	WorkspaceHeaderConnectionFmt          string
+	WorkspaceHeaderPendingFmt             string
+	WorkspaceHeaderNeedsTwo               string
+	WorkspaceHeaderEmptyFmt               string
+	WorkspaceHeaderLayout                 string
+
+	// Debug workspace: an editor surface for trying the framework's code editor.
+	DebugTitle       string
+	DebugDescription string
+
+	// What the user is told when the saved state could not be loaded as it was.
+	// The Fmt strings take the file names or versions named in persist.go.
+	StateTooNewTitle                     string
+	StateTooNewBodyFmt                   string
+	StateUnreadableTitle                 string
+	StateUnreadableBodyFmt               string
+	StateNoticeOK                        string
+	DevelopmentWorkspaceRestoreTitle     string
+	DevelopmentWorkspaceRestoreFailedFmt string
+	DevelopmentImportTitle               string
+	DevelopmentImportBodyFmt             string
+	DevelopmentImportAction              string
+	DevelopmentImportEmpty               string
+	DevelopmentImportKeep                string
+	DevelopmentImportPasswords           string
+	DevelopmentImportResume              string
+	DevelopmentImportFailedFmt           string
+	DevelopmentImportNotEmpty            string
+
+	// The status-area icon and the panel beside it. TrayTooltipEmpty and
+	// TrayTooltipFmt take the version; the format then takes the number of open
+	// sessions.
+	TrayTitle         string
+	TrayEmpty         string
+	TrayQuit          string
+	TrayLocalTerminal string
+	TrayShowWindow    string
+	TrayCheckUpdates  string
+	TrayTooltipFmt    string
+	TrayTooltipEmpty  string
+	// TrayHintTitle and TrayHintBody are the notification shown the first time
+	// closing a window leaves the application running in the status area, which
+	// is otherwise indistinguishable from quitting.
+	TrayHintTitle string
+	TrayHintBody  string
+
+	// Settings workspace.
+	SettingsTitle                          string
+	SettingsDescription                    string
+	SettingsLanguage                       string
+	SettingsLanguageEnglish                string
+	SettingsLanguageChinese                string
+	SettingsLanguageTraditionalChinese     string
+	SettingsAppearance                     string
+	SettingsAppearanceSystem               string
+	SettingsAppearanceDark                 string
+	SettingsAppearanceLight                string
+	SettingsTextSize                       string
+	SettingsTextSizeDescription            string
+	SettingsTextSizeSmall                  string
+	SettingsTextSizeRegular                string
+	SettingsTextSizeLarge                  string
+	SettingsInterfaceFont                  string
+	SettingsInterfaceFontDefault           string
+	SettingsInterfaceFontUnsupportedFmt    string
+	SettingsOutputAlerts                   string
+	SettingsOutputAlertsDescription        string
+	SettingsTabOrientation                 string
+	SettingsTabOrientationDescription      string
+	SettingsTabsHorizontal                 string
+	SettingsTabsVertical                   string
+	SettingsTabNumbers                     string
+	SettingsTabNumbersDescription          string
+	SettingsTabNumberKeys                  string
+	SettingsTabNumberKeysDescription       string
+	SettingsTabsAutoHide                   string
+	SettingsTabsAutoHideDescription        string
+	SettingsTabsGrouping                   string
+	SettingsTabsGroupingDescription        string
+	VerticalTabGroupCountFmt               string
+	VerticalTabsPin                        string
+	VerticalTabsAutoHide                   string
+	VerticalTabsScrollbar                  string
+	SettingsNetworkProxy                   string
+	SettingsNetworkProxyDescription        string
+	SettingsNetworkProxySystem             string
+	SettingsNetworkProxyDirect             string
+	SettingsToolbarPosition                string
+	SettingsToolbarPositionDescription     string
+	SettingsToolbarPositionLeft            string
+	SettingsToolbarPositionRight           string
+	SettingsToolbarSize                    string
+	SettingsToolbarSizeSmall               string
+	SettingsToolbarSizeMedium              string
+	SettingsToolbarSizeLarge               string
+	SettingsTerminalOption                 string
+	SettingsTerminalOptionDescription      string
+	SettingsTerminalOptionText             string
+	SettingsTerminalOptionMeta             string
+	SettingsLocalShell                     string
+	SettingsLocalShellDescription          string
+	SettingsLocalShellEmpty                string
+	LocalShellDefault                      string
+	LocalShellChoose                       string
+	SettingsTerminalFontSize               string
+	SettingsTerminalFontSizeDescription    string
+	SettingsTerminalFontFamily             string
+	SettingsTerminalFontSystem             string
+	SettingsTerminalFontClassic            string
+	SettingsTerminalScrollback             string
+	SettingsTerminalScrollbackDescription  string
+	SettingsConnectionTimeout              string
+	SettingsConnectionTimeoutDescription   string
+	SettingsConnectionKeepAlive            string
+	SettingsConnectionKeepAliveDescription string
+	SettingsConnectionKeepAliveOff         string
+	SettingsConnectionReconnect            string
+	SettingsConnectionReconnectDescription string
+	SettingsConnectionReconnectOff         string
+	SettingsConnectionReconnectThree       string
+	SettingsConnectionReconnectForever     string
+	SettingsShare                          string
+	SettingsShareDescription               string
+	ConnShareRefusedFmt                    string
+	PasswordSave                           string
+	KeyPassphraseSave                      string
+	PasswordSavedRefused                   string
+	ShowSecret                             string
+	HideSecret                             string
+	SettingsGroupSecurity                  string
+	SettingsVault                          string
+	SettingsVaultDescriptionFmt            string
+	SettingsVaultDescriptionLockedFmt      string
+	SettingsVaultEmpty                     string
+	SettingsVaultForgetAll                 string
+	SettingsVaultConvert                   string
+	VaultConvertDescription                string
+	VaultNeedsConversion                   string
+	VaultUnlockTitle                       string
+	VaultUnlockLabel                       string
+	VaultUnlockButton                      string
+	VaultWrongPassword                     string
+	VaultForgetTitle                       string
+	VaultForgetDescription                 string
+	VaultForgetConfirm                     string
+	VaultSavedFmt                          string
+	VaultSaveFailedFmt                     string
+	VaultKeyLost                           string
+	VaultUnavailable                       string
+	VaultCorruptFmt                        string
+	VaultCleared                           string
+	SettingsRestore                        string
+	SettingsStartupRow                     string
+	SettingsStartupEnable                  string
+	SettingsStartupEnableDescription       string
+	SettingsStartupDisabled                string
+	SettingsStartupDescription             string
+	SettingsStartupReuse                   string
+	SettingsStartupReuseDescription        string
+	SettingsStartupNone                    string
+	SettingsStartupJoiner                  string
+	SettingsStartupHostsCount              string
+	SettingsSSHAgent                       string
+	SettingsSSHAgentDescription            string
+	SettingsSSHAgentUsingFmt               string
+	SettingsSSHAgentSystem                 string
+	SettingsSSHAgentCustom                 string
+	SettingsSSHAgentCustomTitle            string
+	SettingsSSHAgentCustomDescription      string
+	SettingsSSHAgentPathLabel              string
+	SettingsSSHAgentPathPlaceholder        string
+	SettingsSSHAgentPathRequired           string
+	SettingsRestoreDescription             string
+	SettingsRestoreOff                     string
+	SettingsRestoreActive                  string
+	SettingsRestoreAll                     string
+	SettingsLocalStart                     string
+	SettingsLocalStartDescription          string
+	SettingsLocalStartRemember             string
+	SettingsLocalStartHome                 string
+	SessionRestoreNeedsYou                 string
+	TipSFTPClose                           string
+	TipFiles                               string
+	TipFilesLocal                          string
+	SFTPInsertPath                         string
+	MenuCopy                               string
+	CopyAddressAndPort                     string
+	CopyConnectionName                     string
+	MenuPaste                              string
+	MenuSelectAll                          string
+	MenuClearScreen                        string
+	MenuClearScrollback                    string
+	MenuResourceMonitor                    string
+	LocalTerminal                          string
+	LocalTerminalTitle                     string
+
+	TipStatsStart                        string
+	TipStatsStop                         string
+	TipStatsRetry                        string
+	TipRecordStart                       string
+	TipRecordStop                        string
+	SettingsTerminalClipboard            string
+	SettingsTerminalClipboardDescription string
+	SettingsTerminalClipboardBlock       string
+	SettingsTerminalClipboardAsk         string
+	SettingsTerminalClipboardAllow       string
+	SettingsShortcuts                    string
+	ShortcutsReset                       string
+	ShortcutsDelete                      string
+	ShortcutsCaptureTitle                string
+	ShortcutsCaptureDescription          string
+	ShortcutsConflictFmt                 string
+	ShortcutsInvalid                     string
+	ShortcutsTabNumberInvalid            string
+	ShortcutCommandPalette               string
+	ShortcutFind                         string
+	ShortcutFilesPath                    string
+	ShortcutCopy                         string
+	ShortcutPaste                        string
+	ShortcutNewTab                       string
+	ShortcutLocalTerminal                string
+	ShortcutCloseTab                     string
+	ShortcutNextTab                      string
+	ShortcutPreviousTab                  string
+	ShortcutTabNumber                    string
+	ShortcutClearScreen                  string
+	RecordingStart                       string
+	RecordingStop                        string
+	RecordingExport                      string
+	RecordingStarted                     string
+	RecordingStopped                     string
+	RecordingExportedFmt                 string
+	RecordingExportFailedFmt             string
+
+	// Toolbar and host table.
+	NewHost          string
+	EditHost         string
+	CopyHost         string
+	DeleteHost       string
+	MoveHostGroup    string
+	HostGroupActions HostGroupMessages
+	HostCatalog      HostCatalogMessages
+	ExportHosts      string
+	ImportCatalog    string
+	ImportMenu       string
+	Connect          string
+	ColumnName       string
+	HostsEmpty       string
+	HostsEmptySub    string
+
+	// OpenSSH config import.
+	SSHConfigImport             string
+	SSHConfigPickerTitle        string
+	SSHConfigImportCanceled     string
+	SSHConfigImportFailedFmt    string
+	SSHConfigResultTitle        string
+	SSHConfigSummaryFmt         string
+	SSHConfigWarningsFmt        string
+	SSHConfigNoWarnings         string
+	SSHConfigDone               string
+	SSHConfigWarningSourceFmt   string
+	SSHConfigWarningHostFmt     string
+	SSHConfigWarningIdentityFmt string
+	SSHConfigWarningProxyFmt    string
+	SSHConfigWarningMoreFmt     string
+
+	// The import notes each host that came with a ProxyCommand: that command
+	// would run on this computer, so it waits for the user to confirm it.
+	SSHConfigProxyCommandFmt        string
+	SSHConfigWarningProxyCommandFmt string
+
+	// New Host dialog.
+	DialogTitle                 string
+	EditHostTitle               string
+	CopyHostTitle               string
+	FieldLabel                  string
+	FieldLabelPlaceholder       string
+	FieldAddress                string
+	FieldAddressPlaceholder     string
+	FieldUser                   string
+	FieldUserPlaceholder        string
+	FieldPassword               string
+	FieldPasswordHint           string
+	FieldPasswordKeepHint       string
+	FieldPasswordCopyHint       string
+	FieldAuthentication         string
+	AuthAutomatic               string
+	AuthPassword                string
+	AuthPrivateKey              string
+	AuthAgent                   string
+	FieldIdentity               string
+	AuthAllKeys                 string
+	AuthKeyUnavailable          string
+	AuthImportKey               string
+	FieldVNCPassword            string
+	HostPasswordShared          string
+	HostPasswordNotCarried      string
+	FieldGroup                  string
+	FieldGroupPlaceholder       string
+	FieldPort                   string
+	FieldTags                   string
+	FieldTagsPlaceholder        string
+	HostTagsEmpty               string
+	HostGroupsEmpty             string
+	HostGroupCreatePrefix       string
+	ErrHostGroupInvalid         string
+	HostTagsCreatePrefix        string
+	FieldIcon                   string
+	FieldColor                  string
+	FieldColorCustom            string
+	ColorPickerChoose           string
+	ColorPickerSV               string
+	ColorPickerHue              string
+	ColorPickerClear            string
+	ColorPickerApply            string
+	ColorPickerInvalid          string
+	ColorNone                   string
+	ColorGreen                  string
+	ColorYellow                 string
+	ColorOrange                 string
+	ColorRed                    string
+	ColorBlue                   string
+	ColorPurple                 string
+	ErrHostColorInvalid         string
+	IconAuto                    string
+	IconServer                  string
+	IconTerminal                string
+	IconSerial                  string
+	IconGlobe                   string
+	IconKey                     string
+	IconDesktop                 string
+	ErrLabelRequired            string
+	ErrGroupRequired            string
+	ErrAddressTaken             string
+	ErrPortInvalid              string
+	ErrHostTagsInvalid          string
+	Cancel                      string
+	AddHost                     string
+	SaveHost                    string
+	HostTest                    string
+	HostTestRunning             string
+	HostTestNoAddress           string
+	HostTestBrokenRoute         string
+	HostTestConnectedFmt        string
+	HostTestHostKey             string
+	HostTestNoPassword          string
+	HostTestNeedsInput          string
+	HostTestKeyLocked           string
+	HostTestFailedFmt           string
+	HostTestTimeout             string
+	DeleteHostTitle             string
+	DeleteHostDescriptionFmt    string
+	DeleteHostConfirm           string
+	HostDeleteBlockedProxyFmt   string
+	HostDeleteBlockedForwardFmt string
+	HostDeleteBlockedSessionFmt string
+	HostDeletedFmt              string
+	HostUpdated                 string
+	HostCopied                  string
+	HostCopyLabelFmt            string
+	HostSelectionFmt            string
+	MoveGroupNone               string
+	MoveGroupNew                string
+	MoveGroupTitle              string
+	MoveGroupField              string
+	MoveGroupSubmit             string
+	HostMovedFmt                string
+	HostFilterAll               string
+	HostFilterMore              string
+	HostGroupDefault            string
+	HostCatalogPickerTitle      string
+	HostCatalogImportFailedFmt  string
+	HostCatalogImportedFmt      string
+	HostCatalogExportedFmt      string
+	HostCatalogExportFailedFmt  string
+
+	// Shown when the search box matches no saved host.
+	NoMatches    string
+	NoMatchesSub string
+
+	// ErrBadTargetFmt reports typed text that is not a connection target; it
+	// takes the text.
+	ErrBadTargetFmt string
+
+	// Per-host connection state shown in the host table.
+	HostStateIdle       string
+	HostStateConnecting string
+	HostStateConnected  string
+	HostStateFailed     string
+
+	// Accessible names of the window-bar buttons and tabs. LabelTerminalFmt
+	// names a terminal and takes its address.
+	LabelGitHub          string
+	LabelThemeToLight    string
+	LabelThemeToDark     string
+	LabelNewTab          string
+	NewTabConnectTo      string
+	MenuCloseOtherTabs   string
+	MenuCloseTabsToRight string
+	MenuCloseTabsBelow   string
+	MenuDuplicateTab     string
+	// MenuMoveTabToNewWindow is the tab menu's choice that gives the tab a
+	// window of its own; TabTearOffHint is what a drag says while the pointer is
+	// out of every window and letting go would do the same.
+	MenuMoveTabToNewWindow string
+	TabTearOffHint         string
+	MenuRenameTab          string
+	MenuRenameTerminal     string
+	MenuLockTab            string
+	MenuUnlockTab          string
+	// TabLockedHint is the tab's accessible description while it is protected.
+	TabLockedHint                 string
+	CloseLockedTabTitle           string
+	CloseLockedTabDescriptionFmt  string
+	CloseLockedTabsDescriptionFmt string
+	CloseTabsTitleFmt             string
+	CloseTabsDescription          string
+	CloseTabsConfirm              string
+	CloseRunningTitle             string
+	CloseRunningDescription       string
+	CloseRunningAsk               string // the "don't ask again" box
+	MenuReconnect                 string
+	MenuDisconnect                string
+	ReconnectTitleFmt             string
+	ReconnectDescription          string
+	ReconnectConfirm              string
+	DisconnectTitleFmt            string
+	DisconnectDescription         string
+	DisconnectConfirm             string
+	RenameTabTitle                string
+	RenameTerminalTitle           string
+	RenameTerminalPlaceholder     string
+	RenameTabField                string
+	RenameTabPlaceholder          string
+	RenameTabSubmit               string
+	ErrTabNameRequired            string
+	NewTabAllHosts                string
+	NewTabPickerPlaceholder       string
+	NewTabPickerEmpty             string
+
+	NewTabSortDefault          string
+	NewTabWorkspacePlaceholder string
+	NewTabSortRecent           string
+	NewTabNeverConnected       string
+	NewTabJustNow              string
+	NewTabSecondsAgo           string
+	NewTabMinutesAgo           string
+	NewTabHoursAgo             string
+	NewTabDaysAgo              string
+	NewTabWeeksAgo             string
+	NewTabMonthsAgo            string
+	NewTabYearsAgo             string
+
+	LabelCloseTab    string
+	LabelTerminalFmt string
+	// Names of the window's own minimize, maximize, restore and close buttons,
+	// which Viva draws on Windows and Linux.
+	LabelWindowMinimize string
+	LabelWindowMaximize string
+	LabelWindowRestore  string
+	LabelWindowClose    string
+	PanePrevious        string
+	PaneNext            string
+	PaneSplitHorizontal string
+	PaneSplitVertical   string
+	PaneClose           string
+	PaneResize          string
+
+	// Saved-state problems, reported once at startup or after a failed save.
+	StatusSaveFailedFmt          string
+	StatusNewWindowFailedFmt     string
+	StatusOpenURLFailedFmt       string
+	StatusClipboardBlocked       string
+	StatusClipboardCopied        string
+	StatusClipboardFailedFmt     string
+	StatusClipboardReadFailedFmt string
+
+	// Connection and session failures. Fmt fields take one %s.
+	ConnShellFailedFmt    string
+	SessionEnded          string
+	SessionEndedStatusFmt string
+	SessionRestoredTitle  string
+	SessionRestoredBody   string
+	SessionReconnect      string
+	SessionReconnectHint  string
+	// SessionNoShellInput is shown when someone types into a tab whose shell is
+	// gone: the keys go nowhere, so saying so is what keeps the keyboard from
+	// looking broken.
+	SessionNoShellInput   string
+	ConnClosed            string
+	ConnCanceled          string
+	ConnRejected          string
+	ConnFailedFmt         string
+	ConnAuthFailed        string
+	ConnSkippedKeyFmt     string
+	ConnChangedTitle      string
+	ConnChangedBodyFmt    string
+	ConnChangedTrustedFmt string
+	ConnChangedPresented  string
+	ConnChangedHintFmt    string
+
+	// Host key and password prompts.
+	HostKeyTitle                   string
+	HostKeyDescriptionFmt          string
+	HostKeyType                    string
+	HostKeyFingerprint             string
+	HostKeyTrust                   string
+	HostKeyOnce                    string
+	HostKeyReject                  string
+	HostKeyForget                  string
+	HostKeyForgetHint              string
+	PasswordTitle                  string
+	PasswordDescription            string
+	PasswordLabel                  string
+	PasswordHint                   string
+	PasswordHintUnsaved            string
+	PasswordRetry                  string
+	PasswordRetryFactor            string
+	StatusConnectedFmt             string
+	StatusConnectFailed            string
+	ClipboardRequestTitle          string
+	ClipboardRequestDescriptionFmt string
+	ClipboardAllowOnce             string
+	ClipboardAlwaysAllow           string
+
+	// Status bar.
+	StatusReadyIdle    string
+	StatusSelected     string // prefix: host name follows
+	StatusOpened       string // prefix: session title follows
+	StatusReused       string // prefix: session title follows
+	StatusHostAdded    string
+	StatusEditCanceled string
+
+	// OpenSSH known_hosts management.
+	KnownHostsTitle                 string
+	KnownHostsDescription           string
+	KnownHostsSearchPlaceholder     string
+	KnownHostsRefresh               string
+	KnownHostsDelete                string
+	KnownHostsRetrust               string
+	KnownHostsColumnLine            string
+	KnownHostsColumnHosts           string
+	KnownHostsColumnFlags           string
+	KnownHostsColumnType            string
+	KnownHostsColumnFingerprint     string
+	KnownHostsColumnComment         string
+	KnownHostsEmpty                 string
+	KnownHostsEmptySub              string
+	KnownHostsNoMatches             string
+	KnownHostsNoMatchesSub          string
+	KnownHostsError                 string
+	KnownHostsCountFmt              string
+	KnownHostsFilteredCountFmt      string
+	KnownHostsSelectedFmt           string
+	KnownHostsPageFmt               string
+	KnownHostsPrevious              string
+	KnownHostsNext                  string
+	KnownHostsLoadedFmt             string
+	KnownHostsLoadFailedFmt         string
+	KnownHostsDeleteTitle           string
+	KnownHostsDeleteDescriptionFmt  string
+	KnownHostsDeleteConfirm         string
+	KnownHostsDeleteFailedFmt       string
+	KnownHostsDeletedFmt            string
+	KnownHostsRetrustTitle          string
+	KnownHostsRetrustDescriptionFmt string
+	KnownHostsRetrustConfirm        string
+	KnownHostsRetrustedFmt          string
+	KnownHostsVerifyWarning         string
+
+	// SSH identity management and private-key passphrase prompts.
+	KeyTitle                    string
+	KeyDescription              string
+	KeyImport                   string
+	KeyRemove                   string
+	KeyColumnName               string
+	KeyColumnType               string
+	KeyColumnProtection         string
+	KeyColumnFingerprint        string
+	KeyEmpty                    string
+	KeyEmptySub                 string
+	KeyCountFmt                 string
+	KeyUnavailable              string
+	KeyUnencrypted              string
+	KeyPassphraseProtected      string
+	KeyEncryptedUnknown         string
+	KeyImportTitle              string
+	KeyImportCanceled           string
+	KeyImportFailedFmt          string
+	KeyInvalidFmt               string
+	KeyImportedFmt              string
+	KeyNothingImported          string
+	KeySelected                 string
+	KeyRemoved                  string
+	KeyInUseFmt                 string
+	KeyPassphraseTitle          string
+	KeyPassphraseDescriptionFmt string
+	KeyPassphraseLabel          string
+	KeyPassphraseHint           string
+	KeyPassphraseRetry          string
+	KeyPassphraseSkip           string
+	KeyUnlock                   string
+	KeySavePassphrase           string
+	KeySavePassphraseTitle      string
+	KeySavePassphraseFmt        string
+	KeySavePassphraseSubmit     string
+	KeyPassphraseWrong          string
+	KeyPassphraseSavedFmt       string
+	KeyPassphraseRemovedFmt     string
+	KeyPassphraseHostHint       string
+	VaultForgetKeysFmt          string
+	KeyAdd                      string
+	KeyPaste                    string
+	KeyGenerate                 string
+	KeyCopyPublic               string
+	KeyPasteTitle               string
+	KeyPasteDescription         string
+	KeyNameLabel                string
+	KeyNamePlaceholder          string
+	KeyTextLabel                string
+	KeyTextPlaceholder          string
+	KeyPasteSubmit              string
+	KeyGenerateTitle            string
+	KeyGenerateDescription      string
+	KeyGenerateNamePlaceholder  string
+	KeyGeneratePassphraseLabel  string
+	KeyGenerateSubmit           string
+	KeyNameRequired             string
+	KeyInvalidTextFmt           string
+	KeyDuplicateFmt             string
+	KeyAddedFmt                 string
+	KeyGeneratedFmt             string
+	KeyGeneratedNotCopiedFmt    string
+	KeyPublicCopiedFmt          string
+	KeyPublicUnavailable        string
+	KeyStoredIn                 string
+	KeyDeleteTitle              string
+	KeyDeleteDescriptionFmt     string
+	KeyDeleteConfirm            string
+	KeyDeletedFmt               string
+
+	// Local SSH port forwarding.
+	ForwardTitle                  string
+	ForwardDescription            string
+	ForwardAdd                    string
+	ForwardRemove                 string
+	ForwardStart                  string
+	ForwardStop                   string
+	ForwardColumnName             string
+	ForwardColumnHost             string
+	ForwardColumnListener         string
+	ForwardColumnDestination      string
+	ForwardColumnStatus           string
+	ForwardEmpty                  string
+	ForwardEmptySub               string
+	ForwardCountFmt               string
+	ForwardStopped                string
+	ForwardStoppedError           string
+	ForwardWaiting                string
+	ForwardStarting               string
+	ForwardRunningFmt             string
+	ForwardRunningError           string
+	ForwardTrafficFmt             string
+	ForwardHostUnavailable        string
+	ForwardConnectionClosed       string
+	ForwardSelected               string
+	ForwardAdded                  string
+	ForwardRemoved                string
+	ForwardStoppedStatus          string
+	ForwardConnectingFmt          string
+	ForwardStartingFmt            string
+	ForwardStartedFmt             string
+	ForwardStartFailedFmt         string
+	ForwardDialogTitle            string
+	ForwardDialogDescription      string
+	ForwardFieldName              string
+	ForwardFieldHost              string
+	ForwardFieldType              string
+	ForwardModeLocal              string
+	ForwardModeRemote             string
+	ForwardModeSOCKS5             string
+	ForwardModeHTTPConnect        string
+	ForwardSOCKS5Hint             string
+	ForwardHTTPConnectHint        string
+	ForwardFieldLocalPort         string
+	ForwardFieldRemotePort        string
+	ForwardFieldDestination       string
+	ForwardFieldDestinationPort   string
+	ForwardFieldResume            string
+	ForwardResumeHelp             string
+	ForwardDestinationPlaceholder string
+	ForwardLocalDestinationHint   string
+	ForwardRemoteListenerFmt      string
+	ForwardCreate                 string
+	ForwardEdit                   string
+	ForwardEditDialogTitle        string
+	ForwardSave                   string
+	ForwardUpdated                string
+	ErrForwardNameRequired        string
+	ErrForwardHostRequired        string
+	ErrForwardPortInvalid         string
+	ErrForwardDestinationRequired string
+	ErrForwardNameTaken           string
+	ErrForwardLocalTaken          string
+	ErrForwardRemoteTaken         string
+	ErrForwardEditMissing         string
+	ErrForwardHostMissing         string
+
+	// SSH jump-host routing.
+	ProxyTitle                 string
+	ProxyDescription           string
+	ProxyAdd                   string
+	ProxyEdit                  string
+	ProxyStart                 string
+	ProxyStop                  string
+	ProxyRemove                string
+	ProxyColumnTarget          string
+	ProxyColumnJump            string
+	ProxyColumnRoute           string
+	ProxyColumnStatus          string
+	ProxyRunning               string
+	ProxyStopped               string
+	ProxyEmpty                 string
+	ProxyEmptySub              string
+	ProxyCountFmt              string
+	ProxySelected              string
+	ProxyAdded                 string
+	ProxyStartedStatus         string
+	ProxyStoppedStatus         string
+	ProxyRemoved               string
+	ProxyDialogTitle           string
+	ProxyEditDialogTitle       string
+	ProxyFieldTarget           string
+	ProxyFieldJump             string
+	ProxyCreate                string
+	ProxyRouteSave             string
+	ProxyUpdated               string
+	ErrProxyHostsRequired      string
+	ErrProxyTargetRequired     string
+	ErrProxyJumpRequired       string
+	ErrProxySameHost           string
+	ErrProxyCycle              string
+	ErrProxyTargetTaken        string
+	ErrProxyEditMissing        string
+	ProxyFieldViaShell         string
+	ProxyViaShellHelp          string
+	ProxyFieldRelay            string
+	ProxyRelayPlaceholder      string
+	ProxyRelayPreludeFmt       string
+	ProxyRelayNoPrelude        string
+	ProxyViaShellTag           string
+	ErrProxyRelay              string
+	ConnDetailConnectingViaFmt string
+	// Host pickers shared by the jump-route and port-forwarding dialogs: the
+	// placeholder of the search field and the row shown when nothing matches.
+	HostPickerSearch    string
+	HostPickerNoMatches string
+
+	// SFTP remote-file page.
+	SFTPFiles                   string
+	SFTPUp                      string
+	SFTPRefresh                 string
+	SFTPDownload                string
+	SFTPUpload                  string
+	SFTPUploadDirectory         string
+	SFTPNewDirectory            string
+	SFTPNewFile                 string
+	SFTPSudoEnable              string
+	SFTPSudoDisable             string
+	SFTPModeToggle              string
+	SFTPSudoHint                string
+	SFTPSudoPassword            string
+	SFTPSudoBusy                string
+	SudoCommandsEnable          string
+	SudoCommandsDisable         string
+	SudoCommandsHint            string
+	DashboardSudoEnable         string
+	DashboardSudoDisable        string
+	DashboardSudoHint           string
+	SFTPOpen                    string
+	SFTPRename                  string
+	SFTPMove                    string
+	SFTPDelete                  string
+	SFTPPermissions             string
+	SFTPCancelTransfer          string
+	SFTPLoading                 string
+	SFTPUnavailable             string
+	SFTPCanceling               string
+	SFTPCanceled                string
+	SFTPSaveTitle               string
+	SFTPSaveCanceled            string
+	SFTPEmpty                   string
+	SFTPErrorFmt                string
+	SFTPItemsFmt                string
+	SCPItemsFmt                 string
+	SFTPDownloadedFmt           string
+	SFTPUploadTitle             string
+	SFTPUploadCanceled          string
+	SFTPUploadedFmt             string
+	SFTPUploadDirectoryTitle    string
+	SFTPDownloadDirectoryTitle  string
+	SFTPTransferQueue           string
+	SFTPQueuedFmt               string
+	SFTPProgressFmt             string
+	SFTPTransferDoneFmt         string
+	SFTPTransferFailedFmt       string
+	SFTPRetryTransfer           string
+	SFTPOverwriteTitle          string
+	SFTPOverwriteDescriptionFmt string
+	SFTPOverwriteConfirm        string
+	SFTPNewDirectoryTitle       string
+	SFTPNewFileTitle            string
+	SFTPDirectoryName           string
+	SFTPFileName                string
+	SFTPCreateDirectory         string
+	SFTPCreateFile              string
+	SFTPErrDirectoryRequired    string
+	SFTPErrFileRequired         string
+	SFTPCreatingDirectoryFmt    string
+	SFTPCreatingFileFmt         string
+	SFTPDirectoryCreatedFmt     string
+	SFTPFileCreatedFmt          string
+	SFTPRenameTitle             string
+	SFTPRenameDescription       string
+	SFTPNewName                 string
+	SFTPRenameSubmit            string
+	SFTPErrRenameInvalid        string
+	SFTPErrRenameSame           string
+	SFTPRenamingFmt             string
+	SFTPRenamedFmt              string
+	SFTPMoveTitle               string
+	SFTPMoveDescription         string
+	SFTPMoveDestination         string
+	SFTPMoveSubmit              string
+	SFTPErrMoveRequired         string
+	SFTPErrMoveInvalid          string
+	SFTPErrMoveSame             string
+	SFTPErrMoveInside           string
+	SFTPMovingFmt               string
+	SFTPMovedFmt                string
+	SFTPDeleteFileTitle         string
+	SFTPDeleteDirectoryTitle    string
+	SFTPDeleteSelectionTitle    string
+	SFTPDeleteSelectionFmt      string
+	SFTPDeleteSelectionPartial  string
+	SFTPDeleteDescriptionFmt    string
+	// SFTPDeleteFolderContentsFmt says a folder goes with everything inside it:
+	// the panel deletes a folder's contents too, not only an empty folder.
+	SFTPDeleteFolderContentsFmt string
+	// SFTPDeletePartialHint follows a folder removal that failed or was
+	// canceled: what was deleted before it stopped stays deleted.
+	SFTPDeletePartialHint       string
+	SFTPDeleteConfirm           string
+	SFTPDeletingFmt             string
+	SFTPDeletedFmt              string
+	SFTPDeletedCountFmt         string
+	SFTPPermissionsTitle        string
+	SFTPPermissionsDescription  string
+	SFTPPermissionsMode         string
+	SFTPPermissionsSubmit       string
+	SFTPPermissionsOwner        string
+	SFTPPermissionsGroup        string
+	SFTPPermissionsOthers       string
+	SFTPPermissionsRead         string
+	SFTPPermissionsWrite        string
+	SFTPPermissionsExecute      string
+	SFTPErrModeInvalid          string
+	SFTPChangingPermissionsFmt  string
+	SFTPPermissionsChangedFmt   string
+	SFTPEditOpeningFmt          string
+	SFTPEditBack                string
+	SFTPEditSave                string
+	SFTPEditReload              string
+	SFTPEditLabel               string
+	SFTPEditSafety              string
+	SFTPEditReady               string
+	SFTPEditDirty               string
+	SFTPEditSaving              string
+	SFTPEditSaved               string
+	SFTPEditReloading           string
+	SFTPEditConflict            string
+	SFTPEditDiscardTitle        string
+	SFTPEditDiscardDescription  string
+	SFTPEditDiscardConfirm      string
+	SFTPEditReloadTitle         string
+	SFTPEditReloadDescription   string
+	SFTPEditConflictTitle       string
+	SFTPEditConflictDescription string
+	SFTPEditReloadConfirm       string
+
+	// Opt-in remote resource monitoring in the terminal info bar.
+	StatsMeasuring   string
+	StatsUnsupported string
+	StatsUnavailable string
+
+	// Terminal find bar.
+	TerminalFindLabel        string
+	TerminalFindPlaceholder  string
+	TerminalFindPrevious     string
+	TerminalFindNext         string
+	TerminalFindClose        string
+	TerminalFindNoMatches    string
+	TerminalFindCountFmt     string
+	TerminalFindTruncatedFmt string
+
+	// The connection page shown until a shell speaks: one row per stage, each
+	// with a line saying what is happening in it now.
+	ConnStepConnect            string
+	ConnStepHostKey            string
+	ConnStepLogin              string
+	ConnStepShell              string
+	ConnDetailDialing          string
+	ConnDetailDialingViaFmt    string
+	ConnDetailJumpDialingFmt   string
+	ConnDetailJumpKeyFmt       string
+	ConnDetailJumpLoginFmt     string
+	ConnDetailJumpReadyFmt     string
+	ConnDetailServerFmt        string
+	ConnDetailKnownHost        string
+	ConnDetailKeyAskFmt        string
+	ConnDetailAgent            string
+	ConnDetailKeyPassphraseFmt string
+	ConnDetailPasswordAsk      string
+	ConnDetailMethodFmt        string
+	ConnDetailShellOpening     string
+	ConnDetailShellWaiting     string
+	ConnNeedsYou               string
+	ConnElapsedFmt             string
+	ConnShowLog                string
+	ConnShowProgress           string
+	ConnClose                  string
+	ConnRetry                  string
+	ConnCancelReconnect        string
+	ConnExportLog              string
+	ConnReconnectWaitingFmt    string
+	ConnReconnectTryingFmt     string
+	ConnReconnectStoppedFmt    string
+	ConnReconnectCanceled      string
+	ConnExportedFmt            string
+	ConnExportFailedFmt        string
+	ConnChangedShort           string
+}
+
+// English catalog.
+// Chinese catalog.
+// For returns the catalog for one language.
+func For(language Language) Messages {
+	switch language {
+	case Chinese:
+		messages := ChineseMessages
+		messages.AIPanel, messages.AISettings, messages.Tools = chineseAIPanel, chineseAISettings, chineseTools
+		messages.Toolbars = chineseToolbars
+		messages.Autofill = chineseAutofill
+		messages.Credentials = chineseCredentials
+		messages.History = chineseHistory
+		messages.Completion = chineseCompletion
+		messages.SSHSync = chineseSSHSync
+		messages.Desktop = chineseDesktop
+		messages.About = chineseAbout
+		return messages
+	case TraditionalChinese:
+		messages := TraditionalMessages
+		messages.AIPanel, messages.AISettings, messages.Tools = traditionalAIPanel, traditionalAISettings, traditionalTools
+		messages.Toolbars = traditionalToolbars
+		messages.Autofill = traditionalAutofill
+		messages.Credentials = traditionalCredentials
+		messages.History = traditionalHistory
+		messages.Completion = traditionalCompletion
+		messages.SSHSync = traditionalSSHSync
+		messages.Desktop = traditionalDesktop
+		messages.About = traditionalAbout
+		return messages
+	default:
+		messages := EnglishMessages
+		messages.AIPanel, messages.AISettings, messages.Tools = englishAIPanel, englishAISettings, englishTools
+		messages.Toolbars = englishToolbars
+		messages.Autofill = englishAutofill
+		messages.Credentials = englishCredentials
+		messages.History = englishHistory
+		messages.Completion = englishCompletion
+		messages.SSHSync = englishSSHSync
+		messages.Desktop = englishDesktop
+		messages.About = englishAbout
+		return messages
+	}
+}

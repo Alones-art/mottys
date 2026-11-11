@@ -1,0 +1,18 @@
+/AGENTS.md
+/CLAUDE.md
+/build/
+/motty
+/.private/
+/.agents/
+/.claude/
+/.atomcode/
+/docs/competitors*.md
+.DS_Store
+/tmp/
+*.test
+__pycache__/
+*.pyc
+
+# website
+/website/node_modules/
+/.wrangler/

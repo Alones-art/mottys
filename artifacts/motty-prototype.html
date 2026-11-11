@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Motty · 可交互 UI 原型（按现有代码还原）</title>
+<style>
+:root{--shell:#E7E7EB;--workspace:#F0F0F3;--surface:#F8F8FA;--soft:#EBEBEF;--hot:#DDDDE2;--line:#DCDCE1;--stroke:#CCCCD2;--text:#26262A;--muted:#5E5E64;--faint:#86868C;--success:#159147;--warning:#965A04;--danger:#D62828;--brand:#03A487;--rc:7.5px;--rs:11px;--ch:32px;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;color:var(--text);background:var(--workspace);-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.app{display:flex;flex-direction:column;height:100vh}
+.titlebar{height:36px;flex:none;background:var(--shell);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:8px;font-size:12px;color:var(--muted)}
+.titlebar .tabs{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden}
+.tt{display:flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:6px;background:#EEEEF1;color:var(--muted);white-space:nowrap;font-size:11.5px;cursor:default}
+.tt.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600}
+.tt .d{width:6px;height:6px;border-radius:50%;background:var(--success)}
+.tt .x{color:var(--faint);margin-left:2px}
+.win{display:flex;gap:14px;color:var(--faint);letter-spacing:2px}
+.frame{display:flex;flex:1;min-height:0}
+.sidebar{width:204px;flex:none;background:var(--shell);border-right:1px solid var(--line);padding:14px 9px 10px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:9px;padding:0 6px 18px}
+.brand svg{width:30px;height:30px}
+.brand b{font-size:17px;font-weight:650;letter-spacing:-.03em}
+.nav{display:flex;flex-direction:column;gap:4px}
+.ni{height:36px;display:flex;align-items:center;gap:12px;padding:0 15px;border-radius:var(--rc);font-size:14px;font-weight:500;color:#55555C;cursor:default;position:relative;user-select:none}
+.ni:hover{background:var(--soft)}
+.ni.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.ni.on::before{content:"";position:absolute;left:-9px;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+.ni.on svg.i{color:var(--brand)}
+.ni svg.i{color:#7C7C84;width:16px;height:16px}
+.side-gap{height:14px}
+.side-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--workspace);overflow:hidden}
+.page{flex:1;min-height:0;overflow:auto;padding:18px}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.ph h1{font-size:18px;font-weight:600;margin:0 0 4px;line-height:28px}
+.ph p{font-size:12px;color:var(--muted);margin:0}
+.row{display:flex;align-items:center;gap:10px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{height:var(--ch);display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:var(--rc);border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:500;cursor:default;white-space:nowrap;color:var(--text)}
+.btn:hover{background:var(--soft)}
+.btn svg.i{width:14px;height:14px}
+.btn.p{background:var(--text);color:#F8F8FA;border-color:var(--text)}
+.btn.p:hover{opacity:.88;background:var(--text)}
+.btn.d{color:var(--danger)}
+.btn[disabled],.btn.dis{opacity:.45;pointer-events:none}
+.btn.sm{height:26px;padding:0 9px;font-size:11.5px}
+.iconbtn{width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;color:var(--muted);cursor:default}
+.iconbtn:hover{background:var(--soft)}
+.iconbtn.on{background:var(--surface);border-color:var(--line);color:var(--text)}
+.iconbtn svg.i{width:14px;height:14px}
+.search{display:flex;align-items:center;gap:8px;height:var(--ch);width:min(41vw,485px);min-width:220px;padding:0 10px;border:1px solid var(--line);border-radius:var(--rc);background:var(--surface)}
+.search:focus-within{border-color:var(--brand)}
+.search input{border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:12.5px}
+.search input::placeholder{color:var(--faint)}
+.search svg.i{width:14px;height:14px;color:var(--faint)}
+.kbd{font-family:var(--mono);font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:2px 5px;background:#FBFBFC}
+.spacer{flex:1}
+.chips{display:flex;align-items:center;gap:6px;margin:0 0 10px;flex-wrap:wrap}
+.chk{width:14px;height:14px;border:1.5px solid #C3C3CA;border-radius:4px;flex:none;cursor:default;display:grid;place-items:center}
+.chk.on{background:var(--text);border-color:var(--text);color:#fff;font-size:10px;line-height:1}
+.chk.half{background:var(--text);border-color:var(--text);position:relative}
+.chk.half::after{content:"";width:7px;height:1.5px;background:#fff;position:absolute}
+.allchk{margin-right:8px}
+.chip{height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:12px;color:var(--muted);cursor:default;white-space:nowrap}
+.chip:hover{background:var(--soft)}
+.chip.on{background:var(--text);border-color:var(--text);color:#F8F8FA;font-weight:600}
+.chip .n{font-family:var(--mono);font-size:10.5px;opacity:.7}
+.chip svg.i{width:12px;height:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden}
+.grow{height:42px;display:flex;align-items:center;gap:11px;padding:0 14px;cursor:default;user-select:none}
+.grow:hover{background:var(--soft)}
+.grow .chev{transition:transform .15s;color:var(--faint)}
+.grow.open .chev{transform:rotate(90deg)}
+.gname{font-weight:600;font-size:13px}
+.gcount{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.star{color:var(--warning);font-size:12px}
+.hrow{height:64px;display:flex;align-items:center;gap:12px;padding:0 14px 0 42px;cursor:default;border-top:1px solid var(--line);user-select:none}
+.hrow:hover{background:var(--soft)}
+.hrow.sel{background:#E6F3EF}
+.badge{width:36px;height:36px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;letter-spacing:-.03em}
+.hname{font-size:13px;font-weight:600;line-height:1.3}
+.hsub{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.haddr{font-size:11.5px;color:var(--muted);font-family:var(--mono);width:170px;flex:none}
+.tags{display:flex;gap:5px;flex:1;min-width:0;overflow:hidden}
+.tag{font-size:10.5px;padding:2px 7px;border-radius:10px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.state{display:flex;align-items:center;gap:6px;font-size:11.5px;width:86px;flex:none;justify-content:flex-end}
+.sdot{width:7px;height:7px;border-radius:50%;background:#B9B9C0}
+.sdot.on{background:var(--success)}
+.sdot.fail{background:var(--danger)}
+.sdot.wait{background:var(--warning)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.hcard{height:64px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--rs);background:var(--surface);border:1px solid var(--line);position:relative;overflow:hidden;cursor:default}
+.hcard:hover{background:var(--soft)}
+.hcard.sel{border-color:var(--brand);background:#E6F3EF}
+.hcard .stripe{position:absolute;left:0;top:0;bottom:0;width:3px}
+.selbar{display:flex;align-items:center;gap:6px;padding:7px 10px;margin-bottom:10px;border-radius:var(--rc);background:var(--surface);border:1px solid var(--line);font-size:12px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+.tbl th{height:34px;text-align:left;padding:0 12px;font-size:10.5px;font-weight:600;letter-spacing:.07em;color:var(--faint);text-transform:uppercase;border-bottom:1px solid var(--line);background:#FBFBFC}
+.tbl td{height:40px;padding:0 12px;border-bottom:1px solid #ECECEF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbl tr{cursor:default}
+.tbl tbody tr:hover{background:var(--soft)}
+.tbl tbody tr.on{background:#E6F3EF}
+.mono{font-family:var(--mono);font-size:11.5px}
+.pill{font-size:10.5px;padding:2px 8px;border-radius:10px;background:var(--soft);color:var(--muted)}
+.pill.ok{background:#E4F3E9;color:var(--success)}
+.pill.warn{background:#F6EBD8;color:var(--warning)}
+.empty{padding:48px 20px;text-align:center;color:var(--faint);font-size:13px}
+.term{flex:1;display:flex;flex-direction:column;min-height:0}
+.termbar{height:34px;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--shell);border-bottom:1px solid var(--line)}
+.termbody{flex:1;display:flex;min-height:0}
+.terminal{flex:1;min-width:0;background:#11151B;color:#E2E7EE;font-family:var(--mono);font-size:12.5px;line-height:1.75;padding:14px 18px;overflow:auto}
+.terminal .g{color:#62CE88}
+.terminal .b{color:#85B7EB}
+.terminal .m{color:#9EABB8}
+.terminal .cur{display:inline-block;width:7px;height:14px;background:#62CE88;vertical-align:-2px}
+.sftp{width:46%;min-width:320px;display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--line)}
+.sftpbar{height:34px;flex:none;display:flex;align-items:center;gap:2px;padding:0 8px;border-bottom:1px solid var(--line)}
+.sftppath{height:30px;flex:none;display:flex;align-items:center;gap:7px;padding:0 10px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}
+.crumb{cursor:default;color:var(--text)}
+.crumb:hover{text-decoration:underline}
+.flist{flex:1;overflow:auto}
+.frow{height:30px;display:flex;align-items:center;gap:9px;padding:0 12px;font-size:12px;border-bottom:1px solid #F0F0F2;cursor:default;user-select:none}
+.frow:hover{background:var(--soft)}
+.frow.on{background:#E6F3EF}
+.frow .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow .fs{width:80px;text-align:right;color:var(--muted);font-family:var(--mono);font-size:11px}
+.frow .fm{width:120px;text-align:right;color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.fhead{height:28px;display:flex;align-items:center;padding:0 12px;gap:9px;font-size:10.5px;color:var(--faint);border-bottom:1px solid var(--line);background:#FBFBFC}
+.fhead .fn{flex:1}
+.fhead .fs{width:80px;text-align:right}
+.fhead .fm{width:120px;text-align:right}
+.settings{display:flex;gap:16px;min-height:0}
+.setnav{width:200px;flex:none;display:flex;flex-direction:column;gap:4px}
+.setrow{height:36px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:var(--rc);font-size:13px;cursor:default;color:var(--muted)}
+.setrow:hover{background:var(--soft)}
+.setrow.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.setbody{flex:1;min-width:0}
+.opt{height:52px;display:flex;align-items:center;gap:16px;padding:0 16px;border-bottom:1px solid var(--line);font-size:13px}
+.opt .lbl{width:180px;flex:none}
+.opt .desc{font-size:11px;color:var(--faint);margin-left:auto}
+.seg{display:inline-flex;background:var(--soft);border-radius:var(--rc);padding:2px;gap:2px}
+.seg span{padding:5px 11px;border-radius:5px;font-size:11.5px;cursor:default;color:var(--muted)}
+.seg span.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.sw{width:34px;height:20px;border-radius:12px;background:#C9C9CF;position:relative;cursor:default;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.sw.on{background:var(--success)}
+.sw.on::after{left:16px}
+.notes{display:flex;gap:12px;height:100%}
+.notetree{width:230px;flex:none;display:flex;flex-direction:column;gap:2px}
+.notetree .t{height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:6px;font-size:12.5px;cursor:default}
+.notetree .t:hover{background:var(--soft)}
+.notetree .t.on{background:#E6F3EF;color:var(--success)}
+.editor{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);padding:16px 20px;font-size:13px;line-height:1.8;overflow:auto}
+.editor h2{font-size:18px;margin:0 0 12px}
+.overlay{position:absolute;inset:0;background:rgba(20,22,26,.32);display:flex;align-items:center;justify-content:center;z-index:60}
+.dlg{width:560px;max-width:calc(100vw - 40px);max-height:82vh;overflow:auto;background:var(--surface);border:1px solid var(--stroke);border-radius:var(--rs);box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.dlg.wide{width:680px}
+.dlg h3{font-size:15px;font-weight:600;margin:0;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dlg .body{padding:16px 20px}
+.dlg .foot{display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid var(--line)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:var(--rc);background:#fff;outline:0;font-size:12.5px}
+.field input:focus,.field select:focus{border-color:var(--brand)}
+.hint{font-size:11px;color:var(--faint);margin-top:4px}
+.f2{display:grid;grid-template-columns:1fr 84px;gap:10px}
+.ctx{position:absolute;z-index:70;min-width:190px;background:var(--surface);border:1px solid var(--stroke);border-radius:10px;padding:5px;box-shadow:0 10px 28px rgba(0,0,0,.16);font-size:12.5px}
+.ctx .ci{height:30px;display:flex;align-items:center;gap:9px;padding:0 10px;border-radius:6px;cursor:default;white-space:nowrap}
+.ctx .ci:hover{background:var(--soft)}
+.ctx .ci.d{color:var(--danger)}
+.ctx .ci.d:hover{background:#FBE9E9}
+.ctx .sep{height:1px;background:var(--line);margin:4px 6px}
+.ctx .ci svg.i{width:14px;height:14px;color:var(--faint)}
+.notice{position:absolute;right:16px;bottom:16px;z-index:80;background:var(--text);color:#F8F8FA;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.split{display:grid;grid-template-columns:1fr 340px;gap:12px}
+@media(max-width:1000px){.split{grid-template-columns:1fr}.sidebar{width:170px}.haddr,.tags{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true"><defs>
+<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8FFCA6"/><stop offset=".45" stop-color="#32D99F"/><stop offset="1" stop-color="#03A487"/></linearGradient>
+<symbol id="i-m" viewBox="0 0 28 28"><path d="M2 22V6l7 9 7-9v16" stroke="url(#lg)" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 6h8v16" stroke="url(#lg)" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-server" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="4.5" rx="1.5"/><rect x="2" y="8.5" width="12" height="4.5" rx="1.5"/><path d="M5 5.2h.01M5 10.7h.01"/></symbol>
+<symbol id="i-columns" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M8 3v10"/></symbol>
+<symbol id="i-activity" viewBox="0 0 16 16"><path d="M2 8h3l2-5 3 10 2-5h2"/></symbol>
+<symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
+<symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="8" r="2.5"/><path d="M8 8h6M11 8v2.5M13.5 8v2"/></symbol>
+<symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12"/></symbol>
+<symbol id="i-forward" viewBox="0 0 16 16"><path d="M2 5h11m-3-2 3 2-3 2M14 11H3m3-2-3 2 3 2"/></symbol>
+<symbol id="i-book" viewBox="0 0 16 16"><path d="M8 4C6 2.5 3.5 2.5 2 3v10c1.5-.5 4-.5 6 1 2-1.5 4.5-1.5 6-1V3c-1.5-.5-4-.5-6 1ZM8 4v10"/></symbol>
+<symbol id="i-sticky" viewBox="0 0 16 16"><path d="M3 3h10v7l-3 3H3z"/><path d="M13 10h-3v3"/></symbol>
+<symbol id="i-notebook" viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 2v12M8.5 6h3M8.5 9h3"/></symbol>
+<symbol id="i-terminal" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="m5 6 2 2-2 2M9 10h3"/></symbol>
+<symbol id="i-cog" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.8 3.8l1 1M11.2 11.2l1 1M12.2 3.8l-1 1M4.8 11.2l-1 1"/></symbol>
+<symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3"/><path d="m10.3 10.3 3 3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+<symbol id="i-plug" viewBox="0 0 16 16"><path d="M6 2v4M10 2v4M4 6h8v3a4 4 0 0 1-8 0zM8 13v1"/></symbol>
+<symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2v8m-3-3 3 3 3-3M3 13h10"/></symbol>
+<symbol id="i-chev" viewBox="0 0 16 16"><path d="m6 4 4 4-4 4"/></symbol>
+<symbol id="i-chevd" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
+<symbol id="i-folderplus" viewBox="0 0 16 16"><path d="M2 5a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M8 8v4M6 10h4"/></symbol>
+<symbol id="i-folderup" viewBox="0 0 16 16"><path d="M2 5a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M8 12V8m-2 2 2-2 2 2"/></symbol>
+<symbol id="i-fileplus" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3M8 9v4M6 11h4"/></symbol>
+<symbol id="i-link" viewBox="0 0 16 16"><path d="M6.5 9.5 9.5 6.5M7 4l1-1a3 3 0 0 1 4 4l-1 1M9 12l-1 1a3 3 0 0 1-4-4l1-1"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v3h-3"/></symbol>
+<symbol id="i-list" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h7"/></symbol>
+<symbol id="i-grid" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+<symbol id="i-sort" viewBox="0 0 16 16"><path d="M4 3v10m0 0-2-2m2 2 2-2M12 13V3m0 0-2 2m2-2 2 2"/></symbol>
+<symbol id="i-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></symbol>
+<symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4h10M6 4V2h4v2M4 4l1 10h6l1-10M6.5 7v4M9.5 7v4"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 16 16"><path d="M11 2 14 5 5 14H2v-3z"/><path d="m9 4 3 3"/></symbol>
+<symbol id="i-copy" viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></symbol>
+<symbol id="i-star" viewBox="0 0 16 16"><path d="m8 2 1.8 3.8 4.2.6-3 3 .7 4.2L8 11.6 4.3 13.6l.7-4.2-3-3 4.2-.6z"/></symbol>
+<symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+<symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 5a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-file" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3"/></symbol>
+<symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></symbol>
+<symbol id="i-harddrive" viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8" rx="2"/><path d="M5 10h.01M8 10h.01"/></symbol>
+<symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3m-4 4 4-4 4 4"/></symbol>
+<symbol id="i-pane" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M9 3v10"/></symbol>
+<symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 2 14 4v4c0 4-2.5 5.5-6 6-3.5-.5-6-2-6-6V4z"/></symbol>
+<symbol id="i-palette" viewBox="0 0 16 16"><path d="M8 2a6 6 0 0 0 0 12c1 0 1.5-.7 1.5-1.3 0-.8-.6-1.2-.6-1.9 0-.7.6-1.3 1.4-1.3H12a2 2 0 0 0 2-2A6 6 0 0 0 8 2Z"/></symbol>
+</defs></svg>
+<div class="app" id="app"></div>
+<script>
+const NAV=[['hosts','主机','i-server'],['workspaces','工作区','i-columns'],['dashboard','监控','i-activity'],['sessionLogs','会话日志','i-clock'],['keys','密钥链','i-key'],['proxies','跳板路由','i-globe'],['forwards','端口转发','i-forward'],['knownHosts','已知主机','i-book'],['snippets','快捷命令','i-sticky'],['notes','笔记','i-notebook']];
+const GROUPS=['测试服务器','货币文化服务器','跳板机','抖音服务器','电源服务器'];
+const COLORS={'测试服务器':'#2C6FE0','货币文化服务器':'#D4507E','跳板机':'#E08A12','抖音服务器':'#7C4DE0','电源服务器':'#128C6E'};
+const BADGE={'测试服务器':'TS','货币文化服务器':'HB','跳板机':'JB','抖音服务器':'DY','电源服务器':'DY'};
+let HOSTS=[
+ {id:1,n:'测试服务器 01',g:'测试服务器',u:'root',a:'192.168.188.7',p:22,tags:['生产','Linux'],st:'已连接',c:'#2C6FE0',sys:'ubuntu'},
+ {id:2,n:'测试服务器 02',g:'测试服务器',u:'root',a:'192.168.188.9',p:22,tags:['测试'],st:'未连接',c:'#2C6FE0',sys:'ubuntu'},
+ {id:3,n:'测试服务器 03',g:'测试服务器',u:'dev',a:'192.168.188.10',p:22,tags:['测试','Docker'],st:'未连接',c:'#2C6FE0',sys:'debian'},
+ {id:4,n:'测试服务器 04',g:'测试服务器',u:'dev',a:'192.168.188.11',p:2222,tags:[],st:'连接失败',c:'#2C6FE0',sys:'centos'},
+ {id:5,n:'货币文化-Web',g:'货币文化服务器',u:'deploy',a:'10.8.3.11',p:22,tags:['线上','Nginx'],st:'未连接',c:'#D4507E',sys:'ubuntu'},
+ {id:6,n:'货币文化-DB',g:'货币文化服务器',u:'deploy',a:'10.8.3.12',p:22,tags:['线上','MySQL'],st:'未连接',c:'#D4507E',sys:'centos'},
+ {id:7,n:'跳板机',g:'跳板机',u:'ops',a:'10.20.1.6',p:22,tags:['堡垒机'],st:'已连接',c:'#E08A12',sys:'ubuntu'},
+ {id:8,n:'抖音服务器 01',g:'抖音服务器',u:'admin',a:'172.16.8.24',p:22,tags:['采集'],st:'未连接',c:'#7C4DE0',sys:'ubuntu'},
+ {id:9,n:'抖音服务器 02',g:'抖音服务器',u:'admin',a:'172.16.8.25',p:22,tags:['采集'],st:'未连接',c:'#7C4DE0',sys:'ubuntu'},
+ {id:10,n:'抖音服务器 03',g:'抖音服务器',u:'admin',a:'172.16.8.26',p:22,tags:[],st:'未连接',c:'#7C4DE0',sys:'debian'},
+ {id:11,n:'电源服务器 01',g:'电源服务器',u:'monitor',a:'10.30.7.5',p:22,tags:['IoT'],st:'连接中',c:'#128C6E',sys:'ubuntu'},
+ {id:12,n:'电源服务器 02',g:'电源服务器',u:'monitor',a:'10.30.7.6',p:22,tags:['IoT'],st:'未连接',c:'#128C6E',sys:'ubuntu'}
+];
+let FILES=[
+ {n:'bin',d:1,s:'—',m:'2026-11-02 09:14'},
+ {n:'etc',d:1,s:'—',m:'2026-10-28 17:02'},
+ {n:'home',d:1,s:'—',m:'2026-11-09 21:40'},
+ {n:'usr',d:1,s:'—',m:'2026-10-28 17:02'},
+ {n:'var',d:1,s:'—',m:'2026-11-10 08:12'},
+ {n:'nginx.conf',d:0,s:'2.4 KB',m:'2026-11-10 14:22'},
+ {n:'README.md',d:0,s:'1.1 KB',m:'2026-11-08 10:05'},
+ {n:'deploy.sh',d:0,s:'840 B',m:'2026-11-11 09:31'},
+ {n:'access.log',d:0,s:'18.6 MB',m:'2026-11-11 13:20'}
+];
+const S={section:'hosts',nav:'hosts',view:'list',filter:'全部',query:'',expanded:new Set(['测试服务器']),sel:new Set(),modal:null,form:{},menu:null,notice:'',sort:'手动排序',tabs:[],activeTab:0,sftp:false,sftpLocal:false,fileSel:new Set(),setcat:'通用',settings:{},tableSel:{},protocol:'SSH',hostKeyFor:null,cmdOpen:false,paletteQuery:'',importOpen:false,keyMenu:false,sftpDialog:null,testState:'',notesSel:'部署检查清单',workspaceOpen:null,detail:'',logsDetail:null};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ic=(n,c)=>'<svg class="i" '+(c?'style="color:'+c+'"':'')+'><use href="#i-'+n+'"/></svg>';
+const btn=(label,act,val,opt)=>'<span class="btn '+(opt&&opt.cls||'')+'" data-act="'+act+'"'+(val!=null?' data-val="'+esc(val)+'"':'')+'>'+(opt&&opt.icon?ic(opt.icon):'')+esc(label)+'</span>';
+const iconbtn=(icon,act,val,on)=>'<span class="iconbtn'+(on?' on':'')+'" data-act="'+act+'"'+(val!=null?' data-val="'+esc(val)+'"':'')+'>'+ic(icon)+'</span>';
+const chk=on=>'<span class="chk'+(on?' on':'')+'">'+(on?'✓':'')+'</span>';
+function notify(t){S.notice=t;render();clearTimeout(notify.t);notify.t=setTimeout(()=>{S.notice='';render()},2200)}
+
+const TABLES={
+ keys:{title:'SSH 密钥',desc:'管理用于连接服务器的私钥与口令。',actions:[['复制公钥','copyPub'],['保存口令','savePass'],['移除','removeRow','keys'],['添加密钥','keyMenu','','p','plus']],cols:['名称','类型','保护','指纹'],rows:[['id_ed25519','ED25519','无','SHA256:qZ1…x8'],['id_rsa_prod','RSA 4096','口令','SHA256:mK9…2d'],['deploy_key','ED25519','加密密钥','SHA256:pT3…7v']],ph:'搜索密钥'},
+ proxies:{title:'跳板路由',desc:'让指定主机通过另一台主机中转连接。',actions:[['移除','removeRow','proxies'],['编辑','dialog','newProxy'],['启动','toggleRow','proxies'],['添加路由','dialog','newProxy','p','plus']],cols:['目标主机','跳板主机','状态','路径'],rows:[['货币文化-DB','跳板机','运行中','10.20.1.6 → 10.8.3.12'],['抖音服务器 01','跳板机','已停止','10.20.1.6 → 172.16.8.24']],ph:'搜索路由'},
+ forwards:{title:'端口转发',desc:'把本地端口映射到远端服务，或反向映射。',actions:[['移除','removeRow','forwards'],['编辑','dialog','newForward'],['启动','toggleRow','forwards'],['新建转发','dialog','newForward','p','plus']],cols:['名称','SSH 主机','监听地址','目标地址','状态'],rows:[['MySQL 隧道','测试服务器 01','127.0.0.1:3306','10.8.3.12:3306','运行中 · 2 个活动连接'],['Nginx 预览','货币文化-Web','127.0.0.1:8080','127.0.0.1:80','已停止'],['SOCKS5 代理','跳板机','127.0.0.1:1080','—','等待 SSH 连接']],ph:'搜索转发'},
+ knownHosts:{title:'已知主机',desc:'已保存并信任的服务器主机密钥。',actions:[['刷新','refresh','','',''],['重新信任','retrust'],['删除','removeRow','knownHosts','d']],cols:['','行','主机模式','标记 / 哈希','密钥类型','指纹','注释'],rows:[['','1','192.168.188.7','SHA256','ED25519','SHA256:qZ1…x8','ubuntu@test-01'],['','2','10.20.1.6','SHA256','ED25519','SHA256:aB4…9k','bastion'],['','3','10.8.3.11','SHA256','RSA','SHA256:nM7…2p','prod-web']],ph:'搜索主机、类型、指纹或注释'},
+ snippets:{title:'快捷命令',desc:'把常用命令存起来，一键发送到终端。',actions:[['删除','removeRow','snippets','d'],['编辑','dialog','newSnippet'],['发送到终端','sendSnippet'],['添加命令','dialog','newSnippet','p','plus']],cols:['名称','分组','快捷键','命令'],rows:[['查看磁盘','运维','⌘⇧D','df -h ↵'],['重启 Nginx','部署','⌘⇧R','systemctl restart nginx ↵'],['跟随日志','运维','⌘⇧L','tail -f /var/log/nginx/access.log ↵'],['查看容器','Docker','⌘⇧C','docker ps -a ↵']],ph:'搜索命令'},
+ sessionLogs:{title:'会话日志',desc:'连接历史与会话结果。',actions:[['清除未收藏','noop'],['清空记录','noop'],['更多','noop']],cols:['目标','开始时间','协议','状态','时长','收藏'],rows:[['测试服务器 01 · root','2026-11-11 11:42','SSH','已结束','1时 12分','★'],['跳板机 · ops','2026-11-11 09:18','SSH','已结束','24分',''],['货币文化-Web · deploy','2026-11-10 18:03','SSH','失败','0分',''],['本地终端','2026-11-10 14:55','本地 Shell','已结束','38分','★']],ph:'搜索主机名、地址或账号'}
+};
+
+function tablePage(k){
+ const t=TABLES[k],q=(S.query||'').toLowerCase();
+ let rows=t.rows.filter(r=>r.join(' ').toLowerCase().includes(q));
+ const sel=S.tableSel[k];
+ let body=rows.map((r,i)=>'<tr class="'+(sel===i?'on':'')+'" data-act="tableRow" data-val="'+k+'|'+i+'">'+r.map((c,j)=>'<td'+(j===0||j===1?'':'')+'>'+(j===0&&k==='knownHosts'?chk(sel===i):esc(c)||'<span class="muted">—</span>')+'</td>').join('')+'</tr>').join('');
+ return '<div class="ph"><div><h1>'+esc(t.title)+'</h1><p>'+esc(t.desc)+'</p></div><div class="actions">'+t.actions.map(a=>btn(a[0],a[1],a[2],{cls:(a[3]==='d'?'d':(a[3]==='p'?'p':'')),icon:a[4]==='plus'?'plus':null})).join('')+'</div></div>'+
+ '<div class="row" style="margin-bottom:12px"><label class="search" style="width:320px">'+ic('search')+'<input data-model="query" placeholder="'+esc(t.ph)+'" value="'+esc(S.query)+'"><span class="kbd">Ctrl K</span></label>'+(k==='sessionLogs'?'<span class="btn sm">时间</span><span class="btn sm">状态</span><span class="btn sm">协议</span><span class="btn sm">结果</span>':'')+'<span class="spacer"></span><span style="font-size:11.5px;color:var(--faint)">'+rows.length+' 条记录</span></div>'+
+ '<div class="card"><table class="tbl"><thead><tr>'+t.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+(body||'<tr><td colspan="'+t.cols.length+'"><div class="empty">没有匹配的记录</div></td></tr>')+'</tbody></table></div>'+
+ (k==='sessionLogs'&&sel!=null?logDetail(rows[sel]):'');
+}
+function logDetail(r){return r?'<div class="card" style="margin-top:12px;padding:14px 16px"><div style="font-weight:600;margin-bottom:10px">会话详情 · '+esc(r[0])+'</div><div class="row" style="gap:24px;font-size:12px;color:var(--muted);flex-wrap:wrap"><span>开始 '+esc(r[1])+'</span><span>协议 '+esc(r[2])+'</span><span>结果 '+esc(r[3])+'</span><span>时长 '+esc(r[4])+'</span></div><div class="actions" style="margin-top:12px">'+btn('打开会话','noop')+btn('再次连接','noop')+btn('复制元数据摘要','noop')+btn('定位主机','go','hosts')+'</div></div>':''}
+
+function hostsPage(){
+ let hs=HOSTS.filter(h=>(S.filter==='全部'||h.g===S.filter)&&(h.n+' '+h.u+'@'+h.a+' '+h.tags.join(' ')).toLowerCase().includes(S.query.toLowerCase()));
+ if(S.sort==='按名称排序')hs=[...hs].sort((a,b)=>a.n.localeCompare(b.n));
+ if(S.sort==='按 IP 地址排序')hs=[...hs].sort((a,b)=>a.a.localeCompare(b.a));
+ const groups=GROUPS.filter(g=>S.filter==='全部'||g===S.filter);
+ const allSel=hs.length>0&&hs.every(h=>S.sel.has(h.id));
+ const someSel=hs.some(h=>S.sel.has(h.id));
+ let list='';
+ groups.forEach(g=>{
+  const gh=hs.filter(h=>h.g===g),open=S.expanded.has(g)||!!S.query;
+  list+='<div class="grow'+(open?' open':'')+'" data-act="toggleGroup" data-val="'+esc(g)+'" data-ctx="group">'+ic('chev','var(--faint)').replace('class="i"','class="i chev"')+'<span class="chk'+(gh.length&&gh.every(h=>S.sel.has(h.id))?' on':'')+'" data-act="groupCheck" data-val="'+esc(g)+'"></span><span class="gname">'+esc(g)+'</span><span class="gcount">('+gh.length+')</span><span class="spacer"></span><span class="star">★</span><span data-act="groupMenu" data-val="'+esc(g)+'" class="iconbtn">'+ic('more')+'</span></div>';
+  if(open)gh.forEach(h=>list+=hostRow(h));
+ });
+ const grid=hs.map(h=>'<div class="hcard'+(S.sel.has(h.id)?' sel':'')+'" data-act="hostClick" data-val="'+h.id+'" data-ctx="host"><span class="stripe" style="background:'+h.c+'"></span><span class="badge" style="background:'+h.c+'">'+esc(BADGE[h.g])+'</span><div style="flex:1;min-width:0"><div class="hname">'+esc(h.n)+'</div><div class="hsub">'+esc(h.u+'@'+h.a)+'</div></div><span class="sdot '+(h.st==='已连接'?'on':h.st==='连接失败'?'fail':h.st==='连接中'?'wait':'')+'"></span></div>').join('');
+ let chips='<span class="chip'+(S.filter==='全部'?' on':'')+'" data-act="filter" data-val="全部">全部 <span class="n">'+HOSTS.length+'</span></span>'+GROUPS.map(g=>'<span class="chip'+(S.filter===g?' on':'')+'" data-act="filter" data-val="'+esc(g)+'">'+esc(g)+' <span class="n">'+HOSTS.filter(h=>h.g===g).length+'</span></span>').join('')+'<span class="chip" data-act="moreChips">更多 '+ic('chevd')+'</span>';
+ return '<div class="row" style="margin-bottom:12px"><label class="search">'+ic('search')+'<input data-model="query" placeholder="搜索主机或 ssh user@hostname…" value="'+esc(S.query)+'"><span class="kbd">Ctrl K</span></label>'+btn('连接','connect',null,{cls:S.sel.size?'':'dis',icon:'plug'})+'<span class="spacer"></span>'+btn('导入 / 导出','importMenu',null,{icon:'download'})+btn('新建主机','dialog','newHost',{cls:'p',icon:'plus'})+'</div>'+
+ (S.sel.size?'<div class="selbar"><strong>已选择 '+S.sel.size+' 台</strong><span style="width:10px"></span>'+btn('导出','noop')+btn('临时连接','connect')+btn('编辑','dialog','newHost')+btn('复制','copyHost')+btn('移动分组','groupMenu',HOSTS.find(h=>S.sel.has(h.id)).g)+btn('添加到监控面板','go','dashboard')+btn('删除','dialog','deleteHost',{cls:'d'})+'<span class="spacer"></span></div>':'')+
+ '<div class="chips"><span class="allchk" data-act="selectAll">'+chk(allSel)+'</span>'+chips+'<span class="spacer"></span>'+iconbtn('folderplus','newFolder')+iconbtn('chevd','expandAll')+iconbtn('chev','collapseAll')+'<span style="width:6px"></span>'+iconbtn('list','view','list',S.view==='list')+iconbtn('grid','view','grid',S.view==='grid')+iconbtn('sort','sortMenu')+'</div>'+
+ (S.view==='list'?'<div class="card" id="hostList">'+(list||'<div class="empty">没有匹配的主机</div>')+'</div>':'<div class="grid" id="hostList">'+(grid||'<div class="empty">没有匹配的主机</div>')+'</div>');
+}
+function hostRow(h){
+ const cls=h.st==='已连接'?'on':h.st==='连接失败'?'fail':h.st==='连接中'?'wait':'';
+ return '<div class="hrow'+(S.sel.has(h.id)?' sel':'')+'" data-act="hostClick" data-val="'+h.id+'" data-ctx="host"><span class="chk'+(S.sel.has(h.id)?' on':'')+'" data-act="hostCheck" data-val="'+h.id+'">'+(S.sel.has(h.id)?'✓':'')+'</span><span class="badge" style="background:'+h.c+'">'+esc(BADGE[h.g])+'</span><div style="width:180px;flex:none"><div class="hname">'+esc(h.n)+'</div><div class="hsub">'+esc(h.u+'@'+h.a)+'</div></div><span class="haddr">'+esc(h.a+':'+h.p)+'</span><span class="tags">'+h.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</span><span class="state"><span class="sdot '+cls+'"></span>'+esc(h.st)+'</span><span data-act="hostMenu" data-val="'+h.id+'" class="iconbtn">'+ic('more')+'</span></div>';
+}
+function workspacesPage(){
+ const tpl=[{n:'日常运维',d:'主栏 + 右侧',h:['测试服务器 01','跳板机','货币文化-Web'],cols:2},{n:'发布检查',d:'主栏 + 底部',h:['货币文化-Web','货币文化-DB'],cols:2},{n:'单机开发',d:'标签切换',h:['本地终端'],cols:1}];
+ return '<div class="ph"><div><h1>工作区</h1><p>保存常用的终端组合与布局，一次打开。</p></div><div class="actions">'+btn('新建工作区','dialog','newWorkspace',{cls:'p',icon:'plus'})+'</div></div><div style="display:flex;flex-direction:column;gap:10px">'+tpl.map((t,i)=>'<div class="card" style="padding:14px 16px"><div class="row" data-act="workspaceToggle" data-val="'+i+'"><span style="font-weight:600;font-size:13.5px">'+esc(t.n)+'</span><span class="pill">'+esc(t.d)+'</span><span class="pill">'+t.h.length+' 个终端</span><span class="spacer"></span>'+btn('进入工作区','openWorkspace',i)+'<span class="iconbtn" data-act="noop">'+ic('more')+'</span></div>'+(S.workspaceOpen===i?'<div class="grid" style="margin-top:12px">'+t.h.map(h=>'<div class="hcard"><span class="badge" style="background:'+COLORS[HOSTS.find(x=>x.n===h)?HOSTS.find(x=>x.n===h).g:'电源服务器']+'">'+ic('terminal')+'</span><div><div class="hname">'+esc(h)+'</div><div class="hsub">终端</div></div></div>').join('')+'</div>':'')+'</div>').join('')+'</div>';
+}
+function dashboardPage(){
+ const data=[['测试服务器 01','监控中','23%','1.8 / 4 GB','42%','12.4 MB/s'],['跳板机','监控中','8%','0.7 / 2 GB','31%','2.1 MB/s'],['货币文化-Web','已停止','—','—','—','—'],['电源服务器 01','采集失败','—','—','—','—']];
+ return '<div class="ph"><div><h1>监控</h1><p>把主机状态汇成一屏。</p></div><div class="actions">'+btn('编辑当前面板','noop')+btn('主机排序','noop')+btn('新建面板','dialog','newDashboard',{cls:'p',icon:'plus'})+btn('停止监控','noop')+'</div></div><div class="row" style="margin-bottom:12px"><span class="seg"><span class="on">简洁</span><span>详细</span></span><label class="search" style="width:280px">'+ic('search')+'<input data-model="query" placeholder="搜索主机、地址或标签" value="'+esc(S.query)+'"></label><span class="spacer"></span><span class="pill ok">2 台监控中</span></div><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">'+data.map(d=>'<div class="card" style="padding:14px 16px"><div class="row"><span style="font-weight:600;font-size:13px">'+d[0]+'</span><span class="spacer"></span><span class="pill '+(d[1]==='监控中'?'ok':d[1]==='采集失败'?'warn':'')+'">'+d[1]+'</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;font-size:11.5px;color:var(--muted)"><span>CPU<br><b style="font-size:18px;color:var(--text)">'+d[2]+'</b></span><span>内存<br><b style="font-size:14px;color:var(--text)">'+d[3]+'</b></span><span>磁盘<br><b style="font-size:18px;color:var(--text)">'+d[4]+'</b></span><span>网络<br><b style="font-size:14px;color:var(--text)">'+d[5]+'</b></span></div></div>').join('')+'</div>';
+}
+function notesPage(){
+ const tree=['部署检查清单','SSH 配置备忘','常用命令','服务器台账','工作日志'];
+ return '<div class="ph"><div><h1>笔记</h1><p>Markdown 笔记与目录。</p></div><div class="actions">'+iconbtn('search','noop')+iconbtn('fileplus','newNote')+iconbtn('folderplus','newNote')+iconbtn('download','noop')+iconbtn('more','noop')+'</div></div><div class="notes"><div class="notetree">'+tree.map(n=>'<div class="t'+(S.notesSel===n?' on':'')+'" data-act="noteSel" data-val="'+esc(n)+'">'+ic('file')+esc(n)+'</div>').join('')+'</div><div class="editor"><div class="row" style="margin-bottom:14px"><span class="seg"><span>源码</span><span>预览</span><span class="on">分屏</span></span><span class="spacer"></span><span style="font-size:11px;color:var(--faint)">更新于 2026-11-11 11:20</span></div><h2>'+esc(S.notesSel)+'</h2><p>发布前检查：</p><p>1. 确认 <code>nginx.conf</code> 已同步</p><p>2. 检查 <code>deploy.sh</code> 的执行权限</p><p>3. 备份数据库</p><p>4. 观察 <code>access.log</code> 5 分钟</p><p style="color:var(--faint);margin-top:20px">支持 Markdown · 自动保存到本地</p></div></div>';
+}
+const SETCATS=['通用','终端','连接','文件','安全','备份与同步','键盘快捷键','关于'];
+function settingsPage(){
+ let body='';
+ const opt=(l,ctrl)=>'<div class="opt"><span class="lbl">'+l+'</span>'+ctrl+'</div>';
+ const seg=(arr,key,cur)=>'<span class="seg">'+arr.map(a=>'<span class="'+(cur===a?'on':'')+'" data-act="setSeg" data-val="'+key+'|'+esc(a)+'">'+esc(a)+'</span>').join('')+'</span>';
+ const sw=k=>'<span class="sw'+(S.settings[k]?' on':'')+'" data-act="sw" data-val="'+k+'"></span>';
+ switch(S.setcat){
+  case '通用':body=opt('语言',seg(['English','简体中文','繁體中文'],'lang','简体中文'))+opt('外观',seg(['跟随系统','深色','浅色'],'appearance','浅色'))+opt('界面文字大小',seg(['小','标准','大'],'textSize','标准'))+opt('界面字体','<span class="pill">系统默认</span>')+opt('显示标签编号',sw('tabNumbers'))+opt('自动收起标签',sw('autoHide'))+opt('后台输出提醒',sw('notify'));break;
+  case '终端':body=opt('默认本地 Shell','<span class="pill">PowerShell</span>')+opt('终端字号','<span class="pill mono">14</span>')+opt('终端字体','<span class="pill mono">Maple Mono NF</span>')+opt('回滚行数','<span class="pill mono">10000</span>')+opt('工具栏位置',seg(['左侧','右侧'],'toolbarSide','左侧'))+opt('工具栏大小',seg(['小','中','大'],'toolbarSize','中'))+opt('Option 键行为',sw('optionMeta'));break;
+  case '连接':body=opt('连接超时','<span class="pill mono">10 秒</span>')+opt('SSH 保活',sw('keepalive'))+opt('自动重连',sw('reconnect'))+opt('共享连接',sw('shareConn'))+opt('使用 SSH agent',sw('agent'));break;
+  case '文件':body=opt('显示列','<span class="pill">名称 · 大小 · 修改时间</span>')+opt('下载目录','<span class="pill mono">~/Downloads</span>')+opt('传输完成后提示',sw('transferDone'));break;
+  case '安全':body=opt('已保存的密码','<span class="pill">3 条</span>')+opt('锁定后自动清除剪贴板',sw('clearClip'))+opt('命令历史记录',sw('history'));break;
+  case '备份与同步':body=opt('自动备份',sw('autoBackup'))+opt('上次同步','<span class="pill mono">2026-11-10 22:00</span>')+opt('导出诊断报告',btn('导出','noop'));break;
+  case '键盘快捷键':body=[['命令面板','Ctrl K'],['新建主机','Ctrl N'],['打开终端','Ctrl T'],['关闭标签','Ctrl W'],['搜索','Ctrl F']].map(r=>'<div class="opt"><span class="lbl">'+r[0]+'</span><span class="kbd">'+r[1]+'</span><span class="spacer"></span><span class="iconbtn" data-act="noop">'+ic('pencil')+'</span></div>').join('')+opt('恢复默认',btn('恢复默认','noop'));break;
+  default:body='<div style="padding:24px;text-align:center"><div style="width:48px;height:48px;margin:0 auto 12px"><svg viewBox="0 0 28 28" style="width:100%;height:100%"><use href="#i-m"/></svg></div><b>Motty</b><div style="font-size:12px;color:var(--muted);margin-top:6px">版本 0.3.9 · 基于 Viva 构建</div></div>';
+ }
+ return '<div class="ph"><div><h1>设置</h1><p>选择 Motty 的外观与终端输入行为。</p></div></div><div class="settings"><div class="setnav"><label class="search" style="width:100%;margin-bottom:8px">'+ic('search')+'<input data-model="query" placeholder="搜索设置"></label>'+SETCATS.map(c=>'<div class="setrow'+(S.setcat===c?' on':'')+'" data-act="setcat" data-val="'+esc(c)+'">'+esc(c)+'</div>').join('')+'</div><div class="setbody card">'+body+'</div></div>';
+}
+function terminalPage(){
+ if(!S.tabs.length)return '<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:var(--muted)">'+ic('terminal')+'<div>还没有打开的会话</div><div class="actions">'+btn('打开本地终端','localTerminal')+btn('回到主机列表','go','hosts',{cls:'p'})+'</div></div>';
+ const t=S.tabs[S.activeTab];
+ const lines=['<span class="g">'+esc(t.user)+'@'+esc(t.name)+'</span>:<span class="b">~</span>$ ssh '+esc(t.user)+'@'+esc(t.addr),'Last login: Wed Nov 11 13:42:18 2026 from 10.0.0.12','','  System information as of Wed Nov 11 13:42:20 CST 2026','','  System load:  0.12              Processes:           128','  Usage of /:   42.1% of 39.60GB   Users logged in:     1','  Memory usage: 45%               IP address for eth0: '+esc(t.addr),'','<span class="g">'+esc(t.user)+'@'+esc(t.name)+'</span>:<span class="b">~</span>$ <span class="cur"></span>'];
+ return '<div class="term"><div class="termbar">'+iconbtn('pane','toggleSftp',null,S.sftp)+iconbtn('file','toggleSftp')+iconbtn('download','noop')+iconbtn('more','noop')+'<span style="font-size:11.5px;color:var(--muted);margin-left:8px">'+esc(t.name)+'</span><span class="spacer"></span>'+btn('文件','toggleSftp')+'</div><div class="termbody"><div class="terminal">'+lines.map(l=>'<div>'+l+'</div>').join('')+'</div>'+(S.sftp?sftpPanel():'')+'</div></div>';
+}
+function sftpPanel(){
+ const title=S.sftpLocal?'本机文件':'文件';
+ return '<div class="sftp"><div class="sftpbar">'+(S.sftpLocal?'':iconbtn('up','fileUp')+iconbtn('folderup','sftpUploadDir')+iconbtn('fileplus','sftpUpload'))+iconbtn('folderplus','dialog','newFolderSftp')+iconbtn('fileplus','dialog','newFileSftp')+(S.sftpLocal?'':iconbtn('link','noop'))+iconbtn('harddrive','sftpPane')+iconbtn('refresh','refresh')+iconbtn('pane','noop')+iconbtn('eye','noop')+'<span class="spacer"></span>'+iconbtn('x','toggleSftp')+'</div><div class="sftppath">'+ic('up')+'<span class="crumb" data-act="crumb">/</span><span class="crumb" data-act="crumb">usr</span><span class="crumb" data-act="crumb">local</span><span class="crumb" data-act="crumb">nginx</span><span class="spacer"></span><span>'+title+'</span><span class="star">★</span></div><div class="fhead"><span class="fn">名称</span><span class="fs">大小</span><span class="fm">修改时间</span></div><div class="flist" data-ctx="sftpBlank">'+FILES.map((f,i)=>'<div class="frow'+(S.fileSel.has(i)?' on':'')+'" data-act="fileClick" data-val="'+i+'" data-ctx="sftp">'+ic(f.d?'folder':'file',f.d?'#E08A12':'var(--faint)')+'<span class="fn">'+esc(f.n)+'</span><span class="fs">'+esc(f.s)+'</span><span class="fm">'+esc(f.m)+'</span></div>').join('')+'</div><div style="height:26px;flex:none;display:flex;align-items:center;padding:0 12px;font-size:11px;color:var(--faint);border-top:1px solid var(--line)">'+FILES.length+' 个项目'+(S.fileSel.size?' · 已选 '+S.fileSel.size:'')+'</div></div>';
+}
+function dialogBody(){
+ const m=S.modal;
+ if(!m)return '';
+ const f=(l,key,ph,extra)=>'<div class="field"><label>'+l+'</label><input data-model="form.'+key+'" placeholder="'+esc(ph)+'" value="'+esc(S.form[key]||'')+'">'+(extra||'')+'</div>';
+ const foot=(submit,act)=>'<div class="foot"><span style="flex:1;font-size:11px;color:'+(S.testState.indexOf('成功')>=0?'var(--success)':'var(--faint)')+'">'+esc(S.testState)+'</span>'+btn('取消','closeModal')+(m==='newHost'?btn('测试连接','testConn'):'')+btn(submit,act,null,{cls:'p'})+'</div>';
+ if(m==='newHost'){
+  const protos=['SSH','Telnet','串口','VNC','RDP'];
+  return ['<h3>新建主机</h3><div class="body">','<div class="seg" style="margin-bottom:16px">'+protos.map(p=>'<span class="'+(S.protocol===p?'on':'')+'" data-act="protocol" data-val="'+p+'">'+p+'</span>').join('')+'</div>',f('名称','label','显示在主机列表中'),'<div class="f2">'+f('地址','address','主机名或 IP')+f('端口','port','22')+'</div>',S.protocol==='SSH'?f('用户','user','登录账户'):'',f('认证方式','auth','自动 / 密码 / 私钥 / SSH Agent'),f('密码','password','可选 · 加密保存','<div class="hint">留空则使用已保存的凭据</div>'),f('分组','group','选择或创建分组'),f('标签','tags','选择或输入标签'),f('图标与颜色','icon','自动 (按系统)'),'<div class="hint">高级：算法、登录后命令、X11 / ssh-agent 转发、不记录命令</div>','</div>',foot('添加主机','saveHost')].join('');
+ }
+ if(m==='deleteHost')return '<h3>删除主机</h3><div class="body"><p style="font-size:13px;margin:0">确定删除选中的 '+S.sel.size+' 台主机吗？此操作无法撤销。</p></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('删除','doDelete',null,{cls:'d'})+'</div>';
+ if(m==='newForward')return '<h3>新建转发</h3><div class="body"><div class="seg" style="margin-bottom:16px"><span class="on">本地</span><span>远程</span><span>SOCKS5</span><span>HTTP CONNECT</span></div>'+f('名称','fname','MySQL 隧道')+f('SSH 主机','fhost','选择主机')+'<div class="f2">'+f('本地端口','lport','3306')+f('目标端口','rport','3306')+'</div>'+f('目标主机','fdest','10.8.3.12')+'<label style="font-size:12px;display:flex;align-items:center;gap:8px"><span class="sw on" data-act="sw" data-val="fResume"></span>断线后自动恢复</label></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('添加转发','closeModal',null,{cls:'p'})+'</div>';
+ if(m==='newProxy')return '<h3>添加路由</h3><div class="body">'+f('目标主机','ptarget','选择主机')+f('跳板主机','pjump','选择主机')+'<label style="font-size:12px;display:flex;align-items:center;gap:8px;margin:8px 0"><span class="sw" data-act="sw" data-val="pRelay"></span>通过跳板主机的终端中转</label>'+f('中继命令','prelay','ssh -W %h:%p')+'<div class="hint">目标主机的连接会先经过跳板机。</div></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('添加路由','closeModal',null,{cls:'p'})+'</div>';
+ if(m==='newSnippet')return '<h3>添加命令</h3><div class="body">'+f('名称','sname','查看磁盘')+f('命令','scmd','df -h')+f('分组','sgroup','运维')+f('快捷键','sshort','⌘⇧D')+'<label style="font-size:12px;display:flex;align-items:center;gap:8px"><span class="sw on" data-act="sw" data-val="sEnter"></span>发送后自动按回车</label></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('保存','closeModal',null,{cls:'p'})+'</div>';
+ if(m==='newFolder')return '<h3>新建文件夹</h3><div class="body">'+f('名称','gname','新分组')+f('上级分组','gparent','主机')+'</div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('创建','doNewGroup',null,{cls:'p'})+'</div>';
+ if(m==='moveGroup')return '<h3>修改分组名称</h3><div class="body">'+f('名称','gname',S.detail||'')+'</div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('保存','closeModal',null,{cls:'p'})+'</div>';
+ if(m==='hostKey')return '<h3>信任主机密钥</h3><div class="body"><p style="font-size:13px;margin:0 0 12px">首次连接到 <b>'+esc(S.hostKeyFor||'')+'</b>。请确认指纹后再继续。</p><div class="card" style="padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:var(--muted)">ED25519 · SHA256:qZ1kM8vT3xP9rL2aB4nC7dE0fG5hJ6</div></div><div class="foot"><span class="spacer"></span>'+btn('拒绝','closeModal')+btn('仅本次','closeModal')+btn('信任并保存','trustHost',null,{cls:'p'})+'</div>';
+ if(m==='newFileSftp'||m==='newFolderSftp'){const d=m==='newFileSftp';return '<h3>'+(d?'新建文件':'新建文件夹')+'</h3><div class="body">'+f('名称','fname',d?'new.txt':'新建文件夹')+'<div class="hint">将在当前目录 '+esc(S.sftpLocal?'本机':'服务器')+' 创建</div></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('创建','doNewFile',d?'file':'dir',{cls:'p'})+'</div>';}
+ if(m==='properties')return '<h3>文件属性</h3><div class="body">'+[['名称',FILES[S.detail]?FILES[S.detail].n:''],['路径','/usr/local/nginx/'+(FILES[S.detail]?FILES[S.detail].n:'')],['类型',FILES[S.detail]&&FILES[S.detail].d?'文件夹':'普通文件'],['大小',FILES[S.detail]?FILES[S.detail].s:''],['修改时间',FILES[S.detail]?FILES[S.detail].m:''],['权限','-rw-r--r--'],['所有者','root'],['组','root']].map(r=>'<div class="opt" style="height:38px"><span class="lbl">'+r[0]+'</span><span class="mono">'+esc(r[1])+'</span></div>').join('')+'</div><div class="foot"><span class="spacer"></span>'+btn('关闭','closeModal')+'</div>';
+ if(m==='newWorkspace'||m==='newDashboard')return '<h3>'+(m==='newWorkspace'?'新建工作区':'新建面板')+'</h3><div class="body">'+f('名称','wname','日常运维')+f('备注','wdesc','可选')+'<div class="hint">选择要包含的终端或主机，最多 12 个。</div></div><div class="foot"><span class="spacer"></span>'+btn('取消','closeModal')+btn('创建','closeModal',null,{cls:'p'})+'</div>';
+ return '<h3>'+esc(m)+'</h3><div class="body"><p>该对话框来自代码中的 modalKind 枚举。</p></div><div class="foot"><span class="spacer"></span>'+btn('关闭','closeModal')+'</div>';
+}
+function contextMenu(){
+ if(!S.menu)return '';
+ const m=S.menu;
+ return '<div class="ctx" style="left:'+Math.min(m.x,window.innerWidth-220)+'px;top:'+Math.min(m.y,window.innerHeight-m.items.length*32-20)+'px">'+m.items.map(it=>it===null?'<div class="sep"></div>':'<div class="ci'+(it.d?' d':'')+'" data-act="'+it.a+'"'+(it.v!=null?' data-val="'+esc(it.v)+'"':'')+'>'+(it.i?ic(it.i):'')+esc(it.t)+'</div>').join('')+'</div>';
+}
+function palette(){
+ if(!S.cmdOpen)return '';
+ const items=[['主机','hosts'],['工作区','workspaces'],['监控','dashboard'],['会话日志','sessionLogs'],['密钥链','keys'],['跳板路由','proxies'],['端口转发','forwards'],['已知主机','knownHosts'],['快捷命令','snippets'],['笔记','notes'],['设置','settings'],['新建主机','cmd:newHost'],['本地终端','cmd:localTerminal'],['文件面板','cmd:sftp']].filter(i=>i[0].includes(S.paletteQuery));
+ return '<div class="overlay" data-act="closePalette"><div class="dlg" style="width:480px" data-stop="1"><h3>命令面板</h3><div class="body" style="padding:12px 16px"><label class="search" style="width:100%">'+ic('search')+'<input data-model="palette" placeholder="搜索页面或命令…" value="'+esc(S.paletteQuery)+'"></label><div style="margin-top:10px;max-height:280px;overflow:auto">'+items.map(i=>'<div class="ci" style="height:32px;display:flex;align-items:center;gap:9px;padding:0 10px;border-radius:6px;cursor:default" data-act="paletteGo" data-val="'+esc(i[1])+'">'+ic('chev')+esc(i[0])+'</div>').join('')+'</div></div></div></div>';
+}
+function render(){
+ const ae=document.activeElement,model=ae&&ae.dataset?ae.dataset.model:null,pos=ae&&ae.selectionStart;
+ const tabs=S.tabs.length?S.tabs.map((t,i)=>'<div class="tt'+(S.section==='terminal'&&S.activeTab===i?' on':'')+'" data-act="tab" data-val="'+i+'"><span class="d"></span>'+esc(t.name)+'<span class="x" data-act="closeTab" data-val="'+i+'">×</span></div>').join(''):'';
+ let body='';
+ switch(S.section){
+  case 'hosts':body=hostsPage();break;
+  case 'workspaces':body=workspacesPage();break;
+  case 'dashboard':body=dashboardPage();break;
+  case 'notes':body=notesPage();break;
+  case 'settings':body=settingsPage();break;
+  case 'terminal':body=terminalPage();break;
+  default:body=tablePage(S.section);
+ }
+ $('#app').innerHTML='<div class="titlebar"><div class="tabs">'+tabs+'<span class="tt" data-act="newTab" style="background:transparent">+</span></div><div class="win"><span data-act="noop">⌘</span><span data-act="noop">—</span><span data-act="noop">▢</span><span data-act="noop">×</span></div></div><div class="frame"><aside class="sidebar"><div class="brand"><svg viewBox="0 0 28 28"><use href="#i-m"/></svg><b>motty</b></div><div class="nav">'+NAV.map((n,i)=>(i===3?'<div class="side-gap"></div>':'')+(i===9?'<div class="side-gap"></div>':'')+'<div class="ni'+(S.nav===n[0]?' on':'')+'" data-act="nav" data-val="'+n[0]+'">'+ic(n[2])+'<span>'+n[1]+'</span></div>').join('')+'</div><div class="side-foot"><div class="ni" data-act="localTerminal">'+ic('terminal')+'<span>本地终端</span></div><div class="ni'+(S.nav==='settings'?' on':'')+'" data-act="nav" data-val="settings">'+ic('cog')+'<span>设置</span></div></div></aside><main class="main"><div class="page" style="'+(S.section==='terminal'?'padding:0;display:flex;flex-direction:column':'')+'">'+body+'</div></main></div>'+(S.modal?'<div class="overlay" data-act="overlayClose"><div class="dlg '+(S.modal==='newHost'?'wide':'')+'" data-stop="1">'+dialogBody()+'</div></div>':'')+contextMenu()+palette()+(S.notice?'<div class="notice">'+esc(S.notice)+'</div>':'')+(S.importOpen?'<div class="ctx" style="left:auto;right:150px;top:96px">'+[['从其他软件导入','noop'],['导入目录','noop'],['导入 SSH Config','noop'],null,['导出','noop']].map(i=>i===null?'<div class="sep"></div>':'<div class="ci" data-act="'+i[1]+'">'+esc(i[0])+'</div>').join('')+'</div>':'')+(S.keyMenu?'<div class="ctx" style="left:auto;right:80px;top:110px">'+[['从文件导入','noop'],['粘贴私钥…','noop'],['生成新密钥…','noop']].map(i=>'<div class="ci" data-act="noop">'+esc(i)+'</div>').join('')+'</div>':'');
+ if(model){const el=document.querySelector('[data-model="'+model+'"]');if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}}
+}
+function openMenu(x,y,items){S.menu={x,y,items};render()}
+function hostMenu(x,y,id){const h=HOSTS.find(v=>v.id===id);openMenu(x,y,[{t:'连接',a:'connectOne',v:id,i:'plug'},{t:'文件传输',a:'openSftp',v:id,i:'folder'},null,{t:'复制连接地址和端口',a:'copyAddr',v:id,i:'copy'},{t:'复制连接名称',a:'copyName',v:id,i:'copy'},{t:'复制主机',a:'copyHost'},{t:'',a:'noop'}].filter(i=>!i||i.t).concat([null,{t:'编辑',a:'dialog',v:'newHost',i:'pencil'},{t:'移动分组',a:'groupMenu',v:h.g,i:'folder'},{t:'删除',a:'dialog',v:'deleteHost',i:'trash',d:true}]))}
+function groupMenu(x,y,g){openMenu(x,y,[{t:'新建主机',a:'dialog',v:'newHost',i:'plus'},{t:'新建子分组',a:'dialog',v:'newFolder',i:'folderplus'},{t:'修改分组名称',a:'groupRename',v:g,i:'pencil'},{t:'移动整个分组',a:'noop',i:'folder'},null,{t:'置顶分组',a:'noop',i:'star'},{t:'上移',a:'noop'},{t:'下移',a:'noop'},null,{t:'删除分组',a:'noop',i:'trash',d:true}])}
+function sftpMenu(x,y,idx){const f=idx!=null?FILES[idx]:null;const sel=S.fileSel.size>0;let items=[];if(f){items.push({t:'打开',a:'noop',i:'folder'});if(!f.d)items.push({t:'外部编辑',a:'noop',i:'pencil'});items.push(null);items.push({t:S.sftpLocal?'把路径输入终端':'下载',a:'noop',i:S.sftpLocal?'terminal':'download'});items.push({t:S.sftpLocal?'发送到服务器':'下载到此处',a:'noop',i:'download'});items.push(null,{t:'重命名',a:'noop',i:'pencil'},{t:'移动到…',a:'noop',i:'folder'},{t:'权限',a:'noop',i:'shield'},null,{t:'删除',a:'noop',i:'trash',d:true},null,{t:'复制完整路径',a:'noop',i:'copy'},{t:'文件属性',a:'fileProps',v:idx,i:'file'},null)}items=items.concat([{t:'新建文件夹',a:'dialog',v:'newFolderSftp',i:'folderplus'},{t:'新建文件',a:'dialog',v:'newFileSftp',i:'fileplus'}]);if(!S.sftpLocal)items=items.concat([{t:'上传',a:'sftpUpload',i:'up'},{t:'上传文件夹',a:'sftpUploadDir',i:'folderup'},{t:'新建符号链接',a:'noop',i:'link'}]);openMenu(x,y,items)}
+function go(section){S.section=section;S.nav=section==='terminal'?'hosts':section;S.menu=null;S.modal=null;S.query='';S.importOpen=false;S.keyMenu=false;render()}
+function openHost(h,trust){if(trust&&!S.trusted){S.hostKeyFor=h.n+' ('+h.a+')';S.pendingHost=h.id;S.modal='hostKey';render();return}S.trusted=true;S.tabs.push({name:h.n,user:h.u,addr:h.a});S.activeTab=S.tabs.length-1;S.sftp=false;go('terminal');notify('已连接 '+h.n)}
+function handle(act,val,el,e){
+ switch(act){
+  case 'noop':notify('该操作在原型中为占位');break;
+  case 'nav':go(val);break;
+  case 'go':go(val);break;
+  case 'filter':S.filter=val;S.menu=null;render();break;
+  case 'moreChips':notify('更多分组：'+GROUPS.join(' / '));break;
+  case 'selectAll':{const hs=HOSTS.filter(h=>(S.filter==='全部'||h.g===S.filter)&&(h.n+' '+h.u+'@'+h.a).toLowerCase().includes(S.query.toLowerCase()));const all=hs.length&&hs.every(h=>S.sel.has(h.id));S.sel=new Set(all?[]:hs.map(h=>h.id));render();break;}
+  case 'hostCheck':{const id=+val;S.sel.has(id)?S.sel.delete(id):S.sel.add(id);render();break;}
+  case 'groupCheck':{const gh=HOSTS.filter(h=>h.g===val);const all=gh.length&&gh.every(h=>S.sel.has(h.id));gh.forEach(h=>all?S.sel.delete(h.id):S.sel.add(h.id));render();break;}
+  case 'hostClick':notify('双击可连接 · 右键打开菜单');break;
+  case 'toggleGroup':S.expanded.has(val)?S.expanded.delete(val):S.expanded.add(val);render();break;
+  case 'expandAll':S.expanded=new Set(GROUPS);render();break;
+  case 'collapseAll':S.expanded=new Set();render();break;
+  case 'view':S.view=val;render();break;
+  case 'sortMenu':openMenu(e.clientX,e.clientY,[{t:'手动排序',a:'setSort',v:'手动排序'},{t:'按名称排序',a:'setSort',v:'按名称排序'},{t:'按 IP 地址排序',a:'setSort',v:'按 IP 地址排序'}]);break;
+  case 'setSort':S.sort=val;S.menu=null;render();break;
+  case 'newFolder':S.form={};S.modal='newFolder';render();break;
+  case 'doNewGroup':{const n=S.form.gname||'新分组';if(!GROUPS.includes(n)){GROUPS.push(n);COLORS[n]='#2C6FE0';BADGE[n]='NG';HOSTS.push({id:Date.now(),n:'新主机',g:n,u:'root',a:'192.168.1.1',p:22,tags:[],st:'未连接',c:'#2C6FE0',sys:'ubuntu'})}S.modal=null;notify('已创建分组 '+n);render();break;}
+  case 'dialog':S.detail=val==='moveGroup'?val:'';S.form={};S.testState='';S.modal=val;S.menu=null;S.importOpen=false;S.keyMenu=false;render();break;
+  case 'closeModal':S.modal=null;S.testState='';render();break;
+  case 'overlayClose':S.modal=null;S.testState='';render();break;
+  case 'protocol':S.protocol=val;render();break;
+  case 'testConn':S.testState='正在测试…';render();setTimeout(()=>{S.testState='连接成功 · 23 ms';render()},700);break;
+  case 'saveHost':{const f=S.form;if(!f.label){S.testState='请填写名称';render();return}const g=GROUPS.includes(f.group)?f.group:'主机';HOSTS.push({id:Date.now(),n:f.label,g:g,u:f.user||'root',a:f.address||'192.168.1.1',p:+(f.port||22),tags:(f.tags||'').split(/[,， ]/).filter(Boolean),st:'未连接',c:COLORS[g]||'#2C6FE0',sys:'ubuntu'});S.modal=null;S.form={};notify('已添加主机 '+f.label);render();break;}
+  case 'doDelete':{S.sel.forEach(id=>{const i=HOSTS.findIndex(h=>h.id===id);if(i>=0)HOSTS.splice(i,1)});const n=S.sel.size;S.sel=new Set();S.modal=null;notify('已删除 '+n+' 台主机');render();break;}
+  case 'copyHost':{const h=HOSTS.find(x=>S.sel.has(x.id));if(h){HOSTS.push({...h,id:Date.now(),n:h.n+' 副本'});notify('已复制主机')}render();break;}
+  case 'groupRename':S.detail=val;S.form={gname:val};S.modal='moveGroup';S.menu=null;render();break;
+  case 'groupMenu':S.menu=null;groupMenu(e.clientX,e.clientY,val);break;
+  case 'hostMenu':S.menu=null;hostMenu(e.clientX,e.clientY,+val);break;
+  case 'copyAddr':{const h=HOSTS.find(x=>x.id===+val);S.menu=null;notify('已复制 '+h.a+':'+h.p);render();break;}
+  case 'copyName':{const h=HOSTS.find(x=>x.id===+val);S.menu=null;notify('已复制 '+h.n);render();break;}
+  case 'connect':{const id=[...S.sel][0];const h=HOSTS.find(x=>x.id===id)||HOSTS[0];if(h)openHost(h,true);break;}
+  case 'connectOne':{const h=HOSTS.find(x=>x.id===+val);S.menu=null;if(h)openHost(h,true);break;}
+  case 'trustHost':{const h=HOSTS.find(x=>x.id===S.pendingHost);S.trusted=true;S.modal=null;if(h)openHost(h,false);break;}
+  case 'localTerminal':S.tabs.push({name:'本地终端',user:'dby',addr:'localhost'});S.activeTab=S.tabs.length-1;S.sftp=false;go('terminal');break;
+  case 'openSftp':{const h=HOSTS.find(x=>x.id===+val);S.menu=null;if(h){S.tabs.push({name:h.n,user:h.u,addr:h.a});S.activeTab=S.tabs.length-1;S.sftp=true;go('terminal')}break;}
+  case 'toggleSftp':S.sftp=!S.sftp;render();break;
+  case 'tab':S.activeTab=+val;S.section='terminal';S.nav='hosts';render();break;
+  case 'closeTab':S.tabs.splice(+val,1);if(S.activeTab>=S.tabs.length)S.activeTab=Math.max(0,S.tabs.length-1);if(!S.tabs.length)go('hosts');else render();break;
+  case 'newTab':go('hosts');notify('选择一个主机开始连接');break;
+  case 'sftpPane':S.sftpLocal=!S.sftpLocal;S.fileSel=new Set();notify(S.sftpLocal?'显示本机文件':'显示服务器文件');render();break;
+  case 'fileClick':{const i=+val;S.fileSel.has(i)?S.fileSel.delete(i):S.fileSel.add(i);render();break;}
+  case 'fileProps':S.detail=val;S.modal='properties';S.menu=null;render();break;
+  case 'sftpUpload':notify('调用 Windows 原生文件对话框（app.OpenFiles）');S.menu=null;render();break;
+  case 'sftpUploadDir':notify('调用 Windows 原生目录对话框（app.OpenDirectory）');S.menu=null;render();break;
+  case 'doNewFile':{const n=S.form.fname||'新建';FILES.push({n:n,d:val==='dir',s:val==='dir'?'—':'0 B',m:'2026-11-11 13:52'});S.modal=null;notify('已创建 '+n);render();break;}
+  case 'fileUp':notify('上级目录');break;
+  case 'crumb':notify('跳转到该目录');break;
+  case 'refresh':notify('已刷新');break;
+  case 'importMenu':S.importOpen=!S.importOpen;S.keyMenu=false;render();break;
+  case 'keyMenu':S.keyMenu=!S.keyMenu;S.importOpen=false;render();break;
+  case 'copyPub':notify('已复制公钥到剪贴板');break;
+  case 'savePass':notify('口令已加密保存');break;
+  case 'retrust':notify('已重新信任选中项');break;
+  case 'sendSnippet':notify('命令已发送到终端');break;
+  case 'tableRow':{const p=val.split('|');S.tableSel[p[0]]=+p[1];render();break;}
+  case 'toggleRow':notify('已切换启动 / 停止');break;
+  case 'removeRow':notify('已移除选中行');break;
+  case 'setcat':S.setcat=val;render();break;
+  case 'setSeg':{const p=val.split('|');S.settings[p[0]]=p[1];render();break;}
+  case 'sw':S.settings[val]=!S.settings[val];render();break;
+  case 'noteSel':S.notesSel=val;render();break;
+  case 'newNote':notify('已新建笔记');break;
+  case 'workspaceToggle':S.workspaceOpen=S.workspaceOpen===+val?null:+val;render();break;
+  case 'openWorkspace':S.tabs.push({name:'工作区 · 日常运维',user:'dby',addr:'localhost'});S.activeTab=S.tabs.length-1;go('terminal');break;
+  case 'closePalette':S.cmdOpen=false;render();break;
+  case 'paletteGo':{S.cmdOpen=false;if(val.startsWith('cmd:')){const c=val.slice(4);if(c==='newHost'){S.form={};S.modal='newHost';render()}else if(c==='localTerminal')handle('localTerminal');else{S.sftp=true;go('terminal')}}else go(val);break;}
+ }
+}
+document.addEventListener('click',e=>{
+ const stop=e.target.closest('[data-stop]');
+ if(!stop&&S.menu){S.menu=null;render()}
+ if(!stop&&(S.importOpen||S.keyMenu)){S.importOpen=false;S.keyMenu=false;render()}
+ const el=e.target.closest('[data-act]');
+ if(!el)return;
+ const act=el.dataset.act,val=el.dataset.val;
+ if((act==='overlayClose'||act==='closePalette')&&stop)return;
+ handle(act,val,el,e);
+});
+document.addEventListener('dblclick',e=>{
+ const row=e.target.closest('[data-act="hostClick"]');
+ if(row){const h=HOSTS.find(x=>x.id===+row.dataset.val);if(h)openHost(h,true)}
+});
+document.addEventListener('contextmenu',e=>{
+ e.preventDefault();
+ const host=e.target.closest('[data-ctx="host"]'),grp=e.target.closest('[data-ctx="group"]'),f=e.target.closest('[data-ctx="sftp"]'),blank=e.target.closest('[data-ctx="sftpBlank"]');
+ if(host)hostMenu(e.clientX,e.clientY,+host.dataset.val);
+ else if(grp)groupMenu(e.clientX,e.clientY,grp.dataset.val);
+ else if(f)sftpMenu(e.clientX,e.clientY,+f.dataset.val);
+ else if(blank)sftpMenu(e.clientX,e.clientY,null);
+ else{S.menu=null;render()}
+});
+document.addEventListener('input',e=>{
+ const m=e.target.dataset.model;if(!m)return;
+ if(m.startsWith('form.')){S.form[m.slice(5)]=e.target.value;return}
+ if(m==='query'){S.query=e.target.value;render()}
+ if(m==='palette'){S.paletteQuery=e.target.value;render()}
+});
+document.addEventListener('keydown',e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();S.cmdOpen=!S.cmdOpen;S.paletteQuery='';render();return}
+ if(e.key==='Escape'){if(S.cmdOpen)S.cmdOpen=false;else if(S.modal)S.modal=null;else if(S.menu)S.menu=null;else if(S.importOpen||S.keyMenu){S.importOpen=false;S.keyMenu=false}else return;render()}
+});
+render();
+</script>
+</body>
+</html>

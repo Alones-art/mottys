@@ -1,0 +1,78 @@
+---
+title: Getting started
+description: Add a host, verify its key and open your first session.
+---
+<Steps>
+
+<Step>
+
+Open **Hosts** and choose **New host**.
+
+</Step>
+
+<Step>
+
+Enter a name, address and account name.
+
+</Step>
+
+<Step>
+
+Pick authentication. **Automatic** uses SSH Agent, default and imported keys,
+and asks for a password when needed; you can instead require password, one private key, or the running
+SSH Agent. A key can be imported directly from this field.
+
+</Step>
+
+<Step>
+
+Connect and compare the host-key fingerprint with the server. Trust it once or
+save it.
+
+</Step>
+
+<Step>
+
+The tab opens on the login shell. A server that asks for a one-time code gets
+the extra field automatically.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+  Motty verifies the host key before it sends any credential. Do not accept a
+  fingerprint you have not compared with the server.
+</Callout>
+
+## Closing the window
+
+Closing the window does not quit Motty: it hides it into the status area, and the
+sessions stay connected. The icon brings the window back, opens a new local
+terminal, or quits. The first time a window hides, a notification says so.
+
+To make closing the last window quit instead, choose **Quit** under
+**Settings → General → Closing the window**. With that setting, closing a
+window that still has sessions asks for confirmation first.
+
+By default, opening Motty again from a desktop shortcut or the Windows taskbar
+menu shows an existing window. Choose **New window** under
+**Settings → General → When launched again** to open a new window instead.
+Motty still runs as a single process; connection links and command-line targets
+retain their usual behavior.
+
+## The command palette
+
+Almost everything is a command in the palette: **Command+Shift+P** on macOS,
+**Control+Shift+P** on Windows and Linux. Tabs, splits, SFTP, forwarding and the
+assistant are all reachable from it.
+
+The full list of default shortcuts is in the [shortcut reference](/en/docs/reference/shortcuts).
+All of them are configurable.
+
+## Next
+
+- [Hosts and authentication](/en/docs/connections/hosts-and-authentication): groups, tags, import and the vault.
+- [The terminal](/en/docs/terminal/terminal): tabs, splits, search and images.
+- [SFTP and SCP](/en/docs/files/sftp-and-scp): move files without another app.
+- [Assistant](/en/docs/assistant/ask-and-agent): Ask and Agent modes.
