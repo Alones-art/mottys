@@ -32,7 +32,7 @@ The changes below are relative to upstream; everything else matches it:
 
 - **The update feed now points at this repository**: the `Feed` constant in
   `internal/update/update.go` names
-  `https://api.github.com/repos/dby-lgth/mottys/releases/latest`, so an update
+  `https://api.github.com/repos/Alones-art/mottys/releases/latest`, so an update
   notice appears when a release here is newer than the running build.
 - **Update checks ask GitHub only**: the upstream mirror
   `dl.motty.page/latest.json` is no longer requested, so notices never name

@@ -23,7 +23,7 @@ import (
 const Current = "0.3.9"
 
 // Feed is the GitHub release the project publishes its builds to.
-const Feed = "https://api.github.com/repos/dby-lgth/mottys/releases/latest"
+const Feed = "https://api.github.com/repos/Alones-art/mottys/releases/latest"
 
 // MirrorFeed is the copy of the newest release on the download host. Unlike
 // Feed it names every file with its size and SHA-256, which is what a download

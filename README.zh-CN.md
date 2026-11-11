@@ -28,7 +28,7 @@ Motty 是一个桌面 SSH 客户端。终端、SFTP 面板、端口转发、远�
 本项目基于 [t8y2/motty](https://github.com/t8y2/motty) v0.3.9 修改，以下为相对上游的改动（其余内容与上游一致）：
 
 - **更新检查源改为本仓库**：`internal/update/update.go` 中的 `Feed` 指向
-  `https://api.github.com/repos/dby-lgth/mottys/releases/latest`，新版本提示
+  `https://api.github.com/repos/Alones-art/mottys/releases/latest`，新版本提示
   依据本仓库发布的 release（tag 高于本机版本即提示）。
 - **更新检查只走 GitHub**：不再请求上游镜像 `dl.motty.page/latest.json`，
   避免提示上游仓库的版本。相应地，`CheckPackage` 直接调用 GitHub feed。

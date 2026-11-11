@@ -32,7 +32,7 @@ Motty はデスクトップの SSH クライアントです。ターミナル、
 以下は上流からの変更点で、その他の内容は上流と同じです：
 
 - **更新チェックの取得先をこのリポジトリに変更**：`internal/update/update.go`
-  の `Feed` を `https://api.github.com/repos/dby-lgth/mottys/releases/latest`
+  の `Feed` を `https://api.github.com/repos/Alones-art/mottys/releases/latest`
   に向け、本リポジトリの release（実行中のバージョンより新しいタグ）があれば
   更新通知を出します。
 - **更新チェックは GitHub のみ**：上流のミラー `dl.motty.page/latest.json`
