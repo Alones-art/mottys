@@ -25,6 +25,26 @@ need a second app for files or a browser tab for a screen.
 The full documentation lives at <https://motty.page/en/docs>; this file covers
 the project, the packages and how to build it.
 
+## Changes in this fork
+
+This project is based on [t8y2/motty](https://github.com/t8y2/motty) v0.3.9.
+The changes below are relative to upstream; everything else matches it:
+
+- **The update feed now points at this repository**: the `Feed` constant in
+  `internal/update/update.go` names
+  `https://api.github.com/repos/dby-lgth/mottys/releases/latest`, so an update
+  notice appears when a release here is newer than the running build.
+- **Update checks ask GitHub only**: the upstream mirror
+  `dl.motty.page/latest.json` is no longer requested, so notices never name
+  upstream releases. `CheckPackage` calls the GitHub feed directly.
+- **Known limit**: a plain GitHub feed can announce an update and open the
+  release page, but cannot install one in place; in-app self-updates need a
+  hosted `latest.json` mirror with a minisign signature, which is not set up
+  yet.
+- **Windows builds match the upstream release flags**:
+  `-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`, with the portable zip
+  packed by `tools/portablezip` into `motty-build/`.
+
 <table>
   <tr>
     <td width="50%" valign="top">

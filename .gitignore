@@ -6,6 +6,11 @@
 /.agents/
 /.claude/
 /.atomcode/
+/.idea/
+/.workbuddy/
+
+# local build artifacts
+/motty-build/
 /docs/competitors*.md
 .DS_Store
 /tmp/

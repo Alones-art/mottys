@@ -23,11 +23,12 @@ import (
 const Current = "0.3.9"
 
 // Feed is the GitHub release the project publishes its builds to.
-const Feed = "https://api.github.com/repos/t8y2/motty/releases/latest"
+const Feed = "https://api.github.com/repos/dby-lgth/mottys/releases/latest"
 
 // MirrorFeed is the copy of the newest release on the download host. Unlike
 // Feed it names every file with its size and SHA-256, which is what a download
-// is checked against.
+// is checked against. This fork checks GitHub only until its own mirror is
+// up, so the mirror stays unused for now.
 const MirrorFeed = "https://dl.motty.page/latest.json"
 
 // ErrNoRelease means the feed has no published release, which is also what a
@@ -146,8 +147,11 @@ const (
 )
 
 // CheckPackage selects the package matching the installation on this machine.
+// This fork has no mirror of its own yet, so it asks GitHub directly: a GitHub
+// answer names the release but carries no checksums, so it can announce an
+// update but not install one in place.
 func CheckPackage(ctx context.Context, client *http.Client, goos, goarch string, pkg Package) (Release, error) {
-	return checkFeedsPackage(ctx, client, MirrorFeed, Feed, goos, goarch, pkg)
+	return Latest(ctx, client, Feed)
 }
 
 func checkFeeds(ctx context.Context, client *http.Client, mirrorFeed, githubFeed, goos, goarch string) (Release, error) {

@@ -26,6 +26,24 @@ Motty はデスクトップの SSH クライアントです。ターミナル、
 ドキュメントは <https://motty.page/en/docs> にあります（サイトは英語と中国語のみ）。
 このファイルではプロジェクトそのもの、パッケージ、ビルド方法を扱います。
 
+## このフォークの変更点
+
+本プロジェクトは [t8y2/motty](https://github.com/t8y2/motty) v0.3.9 を元にしています。
+以下は上流からの変更点で、その他の内容は上流と同じです：
+
+- **更新チェックの取得先をこのリポジトリに変更**：`internal/update/update.go`
+  の `Feed` を `https://api.github.com/repos/dby-lgth/mottys/releases/latest`
+  に向け、本リポジトリの release（実行中のバージョンより新しいタグ）があれば
+  更新通知を出します。
+- **更新チェックは GitHub のみ**：上流のミラー `dl.motty.page/latest.json`
+  は呼び出さなくなりました。`CheckPackage` は GitHub の feed を直接使います。
+- **既知の制限**：GitHub の feed だけでは「通知 + release ページを開いて手動
+  ダウンロード」までしかできません。アプリ内での自動更新には `latest.json`
+  ミラーと minisign 署名が必要で、まだ設定していません。
+- **Windows ビルドは上流のリリースと同じフラグ**：
+  `-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`。ポータブル zip は
+  `tools/portablezip` で `motty-build/` に作成します。
+
 <table>
   <tr>
     <td width="50%" valign="top">
