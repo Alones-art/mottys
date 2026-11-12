@@ -337,6 +337,8 @@ func (state *State) Paint(canvas *gfx.Canvas, size gfx.Size) {
 		state.paintMoveHostGroupDialog(canvas, viewport)
 	case modalRenameTab:
 		state.paintTabRenameDialog(canvas, viewport)
+	case modalTagRename:
+		state.paintTagRenameDialog(canvas, viewport)
 	case modalAIRename:
 		state.paintAIRenameDialog(canvas, viewport)
 	case modalCloseTabs:
