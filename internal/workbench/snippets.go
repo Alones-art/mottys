@@ -73,6 +73,11 @@ var (
 type snippetsUI struct {
 	list []snippet
 
+	// deleteArmed is the list index whose delete button has been pressed once:
+	// the next press on that same snippet really deletes, any other list
+	// change disarms it.
+	deleteArmed int
+
 	// The page's group filter: the groups there are, the list indices it shows
 	// in the order it shows them, and the filter's popup.
 	groups       []string
@@ -332,6 +337,12 @@ func (state *State) submitSnippet() {
 func (state *State) deleteSnippet(index int) {
 	list := state.snippets.list
 	if index < 0 || index >= len(list) {
+		return
+	}
+	if state.snippets.deleteArmed != index {
+		// The first press only arms the button: deleting cannot be undone.
+		state.snippets.deleteArmed = index
+		state.status = fmt.Sprintf(state.messages.Tools.SnippetDeleteConfirmFmt, list[index].Name)
 		return
 	}
 	state.snippets.list = append(list[:index:index], list[index+1:]...)

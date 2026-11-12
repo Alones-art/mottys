@@ -474,6 +474,7 @@ const (
 	modalVaultForget
 	modalHighlightRule
 	modalSnippet
+	modalTagRename
 	modalImportSessions
 	modalFontPicker
 	modalOutboundProxy

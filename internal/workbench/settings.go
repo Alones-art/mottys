@@ -357,6 +357,18 @@ func (state *State) clickSettings(id gfx.ID) bool {
 	if state.modal != modalNone || state.activeSection != sectionSettings {
 		return false
 	}
+	if i, ok := id.In(hitSettingsHostTagRename); ok {
+		if tags := state.hostTagList(); i < len(tags) {
+			state.openTagRename(tags[i].tag)
+		}
+		return true
+	}
+	if i, ok := id.In(hitSettingsHostTagDelete); ok {
+		if tags := state.hostTagList(); i < len(tags) {
+			state.clickHostTagDelete(tags[i].tag)
+		}
+		return true
+	}
 	if state.clickLocalShell(id) || state.clickEditorSelect(id) || state.clickStartupHosts(id) {
 		return true
 	}

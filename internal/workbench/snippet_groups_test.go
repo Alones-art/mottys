@@ -241,6 +241,7 @@ func TestSnippetFilterShowsOneGroup(t *testing.T) {
 	form.filter = snippetFilter{group: "dev"}
 	state.refreshSnippets()
 	state.deleteSnippet(2)
+	state.deleteSnippet(2)
 	if !form.filter.all() || len(form.visible) != 3 {
 		t.Fatalf("after the group went away: filter %+v, %d rows", form.filter, len(form.visible))
 	}
@@ -452,5 +453,28 @@ func TestSnippetPickerGroupsFoldFromTheKeyboard(t *testing.T) {
 	press(gfx.KeyEnter)
 	if got, want := pickerShape(state), []string{"#Ops", "a"}; !sameShape(got, want) {
 		t.Fatalf("Enter on a group: %v, want %v", got, want)
+	}
+}
+
+// Deleting a snippet needs two presses: the first arms the button.
+func TestSnippetDeleteNeedsConfirmation(t *testing.T) {
+	s := newTestState(t, testOptions(t))
+	s.snippets.list = []snippet{{Name: "one", Command: "echo one"}}
+	s.refreshSnippets()
+	s.deleteSnippet(0)
+	if len(s.snippets.list) != 1 || s.snippets.deleteArmed != 0 {
+		t.Fatalf("the first press must only arm the delete: list=%d armed=%d", len(s.snippets.list), s.snippets.deleteArmed)
+	}
+	s.deleteSnippet(0)
+	if len(s.snippets.list) != 0 || s.snippets.deleteArmed != -1 {
+		t.Fatalf("the second press must delete: list=%d armed=%d", len(s.snippets.list), s.snippets.deleteArmed)
+	}
+	// A different snippet's press moves the arm; any list change clears it.
+	s.snippets.list = []snippet{{Name: "a", Command: "a"}, {Name: "b", Command: "b"}}
+	s.refreshSnippets()
+	s.deleteSnippet(0)
+	s.refreshSnippets()
+	if s.snippets.deleteArmed != -1 {
+		t.Fatalf("a list change must disarm: armed=%d", s.snippets.deleteArmed)
 	}
 }

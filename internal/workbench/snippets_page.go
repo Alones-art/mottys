@@ -23,6 +23,7 @@ func (state *State) refreshSnippets() {
 		entry.cells = [4]string{entry.Name, entry.Group, shortcut, strings.ReplaceAll(command, "\n", " ↵ ")}
 	}
 	form.selected = max(0, min(form.selected, len(form.list)-1))
+	form.deleteArmed = -1
 	form.refreshSnippetGroups()
 	form.countText = fmt.Sprintf(state.messages.Tools.SnippetCountFmt, len(form.list))
 	if len(form.visible) != len(form.list) {
@@ -121,7 +122,11 @@ func (state *State) paintSnippetsWorkspace(canvas *gfx.Canvas, bounds gfx.Rect) 
 	})
 	f.End()
 
-	state.paintToolbarButton(canvas, hitSnippetRemove, remove.Rect().X, remove.Rect().Y, removeWidth, m.SnippetDelete, removeIcon, false, hasSelection, condensed)
+	removeLabel := m.SnippetDelete
+	if state.snippets.deleteArmed == state.snippets.selected {
+		removeLabel = m.SnippetDeleteConfirm
+	}
+	state.paintToolbarButton(canvas, hitSnippetRemove, remove.Rect().X, remove.Rect().Y, removeWidth, removeLabel, removeIcon, false, hasSelection, condensed)
 	state.paintToolbarButton(canvas, hitSnippetEdit, edit.Rect().X, edit.Rect().Y, editWidth, m.SnippetEdit, editIcon, false, hasSelection, condensed)
 	form.sendAt = gfx.Point{X: send.Rect().X, Y: send.Rect().Y + toolbarHeight + 4}
 	state.paintToolbarButton(canvas, hitSnippetSend, send.Rect().X, send.Rect().Y, sendWidth, m.SnippetSend, sendIcon, false, hasSelection, condensed)

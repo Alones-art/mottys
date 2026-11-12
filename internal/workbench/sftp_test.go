@@ -1978,3 +1978,43 @@ func TestTheWheelOverTheTerminalBesideTheFilesPanelScrollsTheTerminal(t *testing
 		t.Fatal("the wheel over the terminal moved the file list")
 	}
 }
+
+func TestSFTPMultiMoveKeepsNamesAndMovesEachEntry(t *testing.T) {
+	state, session, _, remote := openTestSFTP(t)
+	view := session.files
+	remote.mu.Lock()
+	remote.entries["/home/test/archive"] = nil
+	remote.mu.Unlock()
+	clickSFTPRow(t, state, view, "notes.txt")
+	clickSFTPRow(t, state, view, "docs")
+	state.Click(hitSFTPMove)
+	if view.dialog != sftpDialogMove || len(view.dialogEntries) != 2 {
+		t.Fatalf("move dialog lost the selection: dialog=%v entries=%d", view.dialog, len(view.dialogEntries))
+	}
+	replaceSFTPDialogText(t, state, "/home/test/archive")
+	state.Click(hitSFTPDialogSubmit)
+	waitSFTP(t, state, session, func(view *sftpView) bool {
+		return !view.busy && view.dialog == sftpDialogNone && len(view.moveRemaining) == 0
+	})
+	remote.mu.Lock()
+	_, fileMoved := remote.files["/home/test/archive/notes.txt"]
+	_, dirMoved := remote.entries["/home/test/archive/docs"]
+	_, fileLeft := remote.files["/home/test/notes.txt"]
+	remote.mu.Unlock()
+	if !fileMoved || !dirMoved || fileLeft {
+		t.Fatalf("multi-move kept the wrong names: file=%v dir=%v left=%v", fileMoved, dirMoved, fileLeft)
+	}
+}
+
+func TestSFTPMultiMoveRefusesMovingIntoSelectedFolder(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := session.files
+	clickSFTPRow(t, state, view, "notes.txt")
+	clickSFTPRow(t, state, view, "docs")
+	state.Click(hitSFTPMove)
+	replaceSFTPDialogText(t, state, "/home/test/docs/deep")
+	state.Click(hitSFTPDialogSubmit)
+	if view.dialog != sftpDialogMove || view.dialogError != state.messages.SFTPErrMoveInside {
+		t.Fatalf("multi move into a selected folder's descendant = dialog %d, error %q", view.dialog, view.dialogError)
+	}
+}

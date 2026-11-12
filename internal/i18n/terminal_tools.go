@@ -89,6 +89,8 @@ type ToolsMessages struct {
 	SnippetSend               string
 	SnippetSendCurrent        string
 	SnippetDelete             string
+	SnippetDeleteConfirm      string
+	SnippetDeleteConfirmFmt   string
 	SnippetDialogAddTitle     string
 	SnippetDialogEditTitle    string
 	SnippetName               string

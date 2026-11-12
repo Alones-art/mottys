@@ -410,6 +410,8 @@ func TestSnippetsAreAddedEditedSentAndKept(t *testing.T) {
 	if restarted := newTestState(t, options); len(restarted.snippets.list) != 1 || restarted.snippets.list[0].Run {
 		t.Fatalf("restored snippets = %+v", restarted.snippets.list)
 	}
+	// The first press arms the destructive button; the second one deletes.
+	state.Click(hitSnippetRemove)
 	state.Click(hitSnippetRemove)
 	if len(state.snippets.list) != 0 {
 		t.Fatalf("snippets after delete = %+v", state.snippets.list)
@@ -566,4 +568,23 @@ func BenchmarkPrepareALogLine(b *testing.B) {
 			}
 		})
 	}
+}
+
+// Snazzy joins the built-in scheme list with its known palette.
+func TestSnazzySchemeIsRegistered(t *testing.T) {
+	for _, scheme := range colorSchemes {
+		if scheme.id != "snazzy" {
+			continue
+		}
+		if scheme.name != "Snazzy" || scheme.background != [3]uint8{0x28, 0x2a, 0x36} ||
+			scheme.foreground != [3]uint8{0xef, 0xf0, 0xeb} || len(scheme.ansi) != 16 {
+			t.Fatalf("snazzy entry drifted: %+v", scheme)
+		}
+		// The red primary and its bright form are the scheme's signature.
+		if scheme.ansi[1] != [3]uint8{0xff, 0x5c, 0x57} || scheme.ansi[9] != [3]uint8{0xff, 0x6e, 0x67} {
+			t.Fatalf("snazzy reds drifted: %v %v", scheme.ansi[1], scheme.ansi[9])
+		}
+		return
+	}
+	t.Fatal("snazzy scheme is missing from the built-in list")
 }

@@ -52,7 +52,11 @@ func (d *fileDocument) syncNoteWindow() bool {
 		n.noteDraft = s.noteBuffer(v.id)
 		n.selected = v.id
 		n.windowView = true
-		n.view.mode = notePreview
+		if s.noteWindowModeKnown {
+			n.view.mode = s.noteWindowMode
+		} else {
+			n.view.mode = notePreview
+		}
 	}
 	if v.missing && !missing {
 		n.noteDraft = s.noteBuffer(v.id)

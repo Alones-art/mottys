@@ -70,6 +70,11 @@ Also written for this fork on its own terms, without merging upstream code:
 - Hover tab scrollbar: a thin scrollbar appears only when the tabs overflow and the pointer is over them; its thumb can be dragged without stealing tab clicks.
 - Notes sidebar close button: an X at the sidebar's top-right corner collapses the panel outright.
 - Per-tab sidebar expansion: each tab remembers which note folders it had open; switching tabs restores that tab's own tree.
+- Snazzy joins the built-in terminal color schemes.
+- The note window remembers the mode it last used and opens with it.
+- SFTP multi-select can move entries to another folder, each keeping its name; a failure mid-way reports what already moved.
+- The settings gained a "Host tags" manager: it lists every tag with the host count, and renaming or deleting applies to all hosts at once; deleting needs a second press.
+- Deleting a snippet needs confirmation: the first press only arms the delete button, and pressing the same delete again removes it.
 
 "Open a local tab in the last folder" and "stack the document comparison in a narrow window" already existed in this 0.3.9 baseline.
 

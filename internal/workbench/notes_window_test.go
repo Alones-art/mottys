@@ -203,3 +203,45 @@ func TestNoteWindowDiscardsQueuedImageResultsAfterChangeAndClose(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A note window opens with the mode it last used, not always the preview.
+func TestNoteWindowOpensWithTheLastUsedMode(t *testing.T) {
+	host := &documentTestHost{}
+	app.UseApplicationRunner(func(start func(app.Host) error) error { return start(host) })
+	t.Cleanup(func() { host.Quit(); app.UseApplicationRunner(nil) })
+	if err := app.RunApplication(func(application *app.Application) error {
+		s := newTestState(t, testOptions(t))
+		s.options.OpenContentWindow = application.OpenContentWindow
+		s.notes.list = []savedNote{{ID: "note", Title: "Saved", Body: "text"}, {ID: "second", Title: "Second", Body: "other"}}
+		s.selectNote("note")
+		s.openNoteWindow("note")
+		d := s.fileWindows.activeDocument()
+		if d == nil || d.note == nil {
+			t.Fatal("note window did not open")
+		}
+		if d.note.content.view.mode != notePreview {
+			t.Fatalf("the first window opened in mode %q, want preview", d.note.content.view.mode)
+		}
+		// Switching the window's mode remembers it for the next window. The
+		// window routes its clicks through withNoteView, as production does.
+		s.withNoteView(&d.note.content, func() {
+			if !s.noteViewClick(hitNoteModes.At(0)) {
+				t.Fatal("the window mode switch was not handled")
+			}
+		})
+		if s.noteWindowMode != noteSource || !s.noteWindowModeKnown {
+			t.Fatalf("the mode switch was not remembered: mode=%q known=%v", s.noteWindowMode, s.noteWindowModeKnown)
+		}
+		s.openNoteWindow("second")
+		second := s.fileWindows.documents["note:second"]
+		if second == nil || second.note == nil {
+			t.Fatal("the second note window did not open")
+		}
+		if second.note.content.view.mode != noteSource {
+			t.Fatalf("the second window opened in mode %q, want the remembered source", second.note.content.view.mode)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}

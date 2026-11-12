@@ -158,6 +158,9 @@ type sftpView struct {
 	dialogEntries         []sftpclient.Entry
 	deleteRemaining       []sftpclient.Entry
 	deleteCompleted       int
+	moveRemaining         []sftpclient.Entry
+	moveFolder            string
+	moveCompleted         int
 	dialogError           string
 	moveAfterRename       bool
 	transfers             []sftpclient.TransferSnapshot
@@ -1233,7 +1236,7 @@ func (state *State) openSFTPDialog(view *sftpView, dialog sftpDialogKind) {
 	// Creating something from nothing needs no selection; every other dialog
 	// works on the selected rows.
 	if dialog != sftpDialogCreateDirectory && dialog != sftpDialogCreateFile {
-		if dialog == sftpDialogDelete {
+		if dialog == sftpDialogDelete || dialog == sftpDialogMove {
 			for _, row := range selectedSFTPRows(view) {
 				view.dialogEntries = append(view.dialogEntries, row.entry)
 			}
@@ -1318,6 +1321,51 @@ func (state *State) finishSFTPDelete(view *sftpView, result sftpclient.Result) {
 		view.refreshStatus = fmt.Sprintf(state.messages.SFTPDeletedCountFmt, completed)
 	} else {
 		view.refreshStatus = fmt.Sprintf(state.messages.SFTPDeletedFmt, result.Path)
+	}
+	state.listSFTP(view, view.path)
+}
+
+func (state *State) queueNextSFTPMove(view *sftpView) bool {
+	entry := view.moveRemaining[0]
+	source := path.Join(view.path, entry.Name)
+	destination := path.Join(view.moveFolder, entry.Name)
+	queued := view.worker.Rename(source, destination)
+	if queued {
+		view.moveRemaining = view.moveRemaining[1:]
+		view.busy = true
+		view.status = fmt.Sprintf(state.messages.SFTPMovingFmt, entry.Name)
+	}
+	return queued
+}
+
+func (state *State) finishSFTPMove(view *sftpView, result sftpclient.Result) {
+	if result.Err == nil {
+		view.moveCompleted++
+	}
+	if result.Err == nil && len(view.moveRemaining) > 0 && state.queueNextSFTPMove(view) {
+		return
+	}
+	remaining := len(view.moveRemaining)
+	completed := view.moveCompleted
+	failedPath := result.Path
+	if result.Err == nil && remaining > 0 {
+		failedPath = path.Join(view.path, view.moveRemaining[0].Name)
+	}
+	view.moveRemaining = nil
+	view.moveCompleted = 0
+	view.forgetListings()
+	if result.Err != nil || remaining > 0 {
+		detail := state.messages.SFTPMoveSelectionPartial
+		if result.Err != nil {
+			detail = fmt.Sprintf("%s: %s %s", failedPath, fmt.Sprintf(state.messages.SFTPErrorFmt, result.Err), detail)
+		} else {
+			detail = fmt.Sprintf("%s: %s %s", failedPath, state.messages.SFTPUnavailable, detail)
+		}
+		state.fileOpenNotice(view.detached, state.messages.SFTPMoveSelectionTitle, detail, components.ToastError)
+	} else if completed > 1 {
+		view.refreshStatus = fmt.Sprintf(state.messages.SFTPMovedCountFmt, completed)
+	} else {
+		view.refreshStatus = fmt.Sprintf(state.messages.SFTPMovedFmt, result.Path, result.Destination)
 	}
 	state.listSFTP(view, view.path)
 }
@@ -1454,16 +1502,38 @@ func (state *State) submitSFTPDialog(view *sftpView) {
 			view.dialogError = state.messages.SFTPErrMoveSame
 			return
 		}
-		source := path.Join(view.path, view.dialogEntry.Name)
-		if view.dialogEntry.IsDir() && !view.dialogEntry.IsLink() &&
-			(path.Clean(folder) == path.Clean(source) || strings.HasPrefix(path.Clean(folder), path.Clean(source)+"/")) {
-			view.dialogError = state.messages.SFTPErrMoveInside
+		entries := view.dialogEntries
+		if len(entries) == 0 {
+			entries = []sftpclient.Entry{view.dialogEntry}
+		}
+		for _, entry := range entries {
+			source := path.Join(view.path, entry.Name)
+			if entry.IsDir() && !entry.IsLink() &&
+				(path.Clean(folder) == path.Clean(source) || strings.HasPrefix(path.Clean(folder), path.Clean(source)+"/")) {
+				view.dialogError = state.messages.SFTPErrMoveInside
+				return
+			}
+		}
+		if len(entries) > 1 {
+			// A multi-selection moves entry by entry, each keeping its name.
+			view.moveRemaining = slices.Clone(entries)
+			view.moveFolder = folder
+			view.moveCompleted = 0
+			if !state.queueNextSFTPMove(view) {
+				view.moveRemaining = nil
+				view.dialogError = state.messages.SFTPUnavailable
+				return
+			}
+			state.closeSFTPDialog(view)
+			view.errorText = ""
 			return
 		}
-		destination := path.Join(folder, view.dialogEntry.Name)
+		entry := entries[0]
+		source := path.Join(view.path, entry.Name)
+		destination := path.Join(folder, entry.Name)
 		queued = view.worker.Rename(source, destination)
 		operation = sftpclient.OperationRename
-		status = fmt.Sprintf(state.messages.SFTPMovingFmt, view.dialogEntry.Name)
+		status = fmt.Sprintf(state.messages.SFTPMovingFmt, entry.Name)
 		view.moveAfterRename = queued
 	case sftpDialogDelete:
 		if len(view.dialogEntries) > 1 {
@@ -1612,6 +1682,10 @@ func (state *State) pumpSFTP(session *Session) {
 			}
 			if (result.Operation == sftpclient.OperationRemoveFile || result.Operation == sftpclient.OperationRemoveDirectory) && (view.deleteRemaining != nil || view.deleteCompleted > 0) {
 				state.finishSFTPDelete(view, result)
+				continue
+			}
+			if result.Operation == sftpclient.OperationRename && (view.moveRemaining != nil || view.moveCompleted > 0) {
+				state.finishSFTPMove(view, result)
 				continue
 			}
 			if view.detached != nil && view.detached.browseDirectoryCreated(result) {

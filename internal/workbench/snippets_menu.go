@@ -97,7 +97,12 @@ func (state *State) snippetActionRows(rows *menuRows) {
 	rows.add(components.ContextMenuItem{ID: hitSnippetMenuDown, Label: m.SnippetMoveDown, Icon: icon(iconChevronDown), Disabled: state.snippetNeighbor(state.snippetMenu.index, 1) < 0})
 	rows.separate()
 	rows.add(components.ContextMenuItem{ID: hitSnippetMenuEdit, Label: m.SnippetEdit, Icon: icon(iconPencil)})
-	rows.add(components.ContextMenuItem{ID: hitSnippetMenuDelete, Label: m.SnippetDelete, Icon: icon(iconTrash), Variant: components.ContextMenuItemDestructive})
+	deleteLabel := m.SnippetDelete
+	if armed := state.snippets.deleteArmed; armed >= 0 && armed < len(state.snippets.list) &&
+		state.snippetMenu.index == armed {
+		deleteLabel = m.SnippetDeleteConfirm
+	}
+	rows.add(components.ContextMenuItem{ID: hitSnippetMenuDelete, Label: deleteLabel, Icon: icon(iconTrash), Variant: components.ContextMenuItemDestructive})
 }
 
 // clickSnippetMenu runs a menu choice. A press anywhere else only closes the menu.

@@ -611,6 +611,9 @@ type State struct {
 	hostsBounds       gfx.Rect // the hosts page as last painted; the menus anchor to it
 	terminalMenu      terminalMenu
 	hostGroupEditor   text.Editor
+	hostTagEditor     text.Editor // the tag-rename dialog's field
+	hostTagRenaming   string      // the tag the rename dialog is about, "" when closed
+	hostTagArmed      string      // the tag whose settings delete button is armed
 	groupActions      hostGroupActions
 	tabRename         tabRename
 	tabsClose         tabsClose
@@ -893,6 +896,10 @@ type State struct {
 	highlights    *highlight.Set
 	highlighting  highlightUI
 	notes         notesUI
+	// The note window opens with the mode it last used; noteWindowModeKnown
+	// says the saved mode is real (the zero mode would read as "source").
+	noteWindowMode      noteMode
+	noteWindowModeKnown bool
 	// noteLinks is what this window knows about the files of linked notes, and
 	// noteWatches the directory watches that follow them.
 	noteLinks      map[string]*noteLinkState
@@ -1367,6 +1374,10 @@ func (state *State) EditorFor(hit gfx.ID) *text.Editor {
 		if hit == hitTabRenameField {
 			return &state.tabRename.editor
 		}
+	case modalTagRename:
+		if hit == hitTagRenameField {
+			return &state.hostTagEditor
+		}
 	case modalAIRename:
 		if hit == hitAIRenameField {
 			return &state.ai.rename.editor
@@ -1570,6 +1581,9 @@ func (state *State) click(id gfx.ID, feedback bool) {
 		return
 	case modalRenameTab:
 		state.clickTabRenameDialog(id)
+		return
+	case modalTagRename:
+		state.clickTagRenameDialog(id)
 		return
 	case modalAIRename:
 		state.clickAIRenameDialog(id)
@@ -2782,6 +2796,9 @@ func (state *State) key(event gfx.KeyEvent) gfx.EventResult {
 		return result
 	}
 	if result, handled := state.tabRenameKey(event); handled {
+		return result
+	}
+	if result, handled := state.tagRenameKey(event); handled {
 		return result
 	}
 	if result, handled := state.closeTabsKey(event); handled {

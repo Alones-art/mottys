@@ -273,6 +273,15 @@ type Messages struct {
 	SettingsTabNumbersDescription          string
 	SettingsHideLocalShells                string
 	SettingsHideLocalShellsDescription     string
+	SettingsHostTags                       string
+	HostTagsSettingsEmpty                  string
+	HostTagsCountFmt                       string
+	HostTagsDelete                         string
+	HostTagsDeleteArmed                    string
+	HostTagsRenameTitle                    string
+	HostTagsRenameField                    string
+	HostTagsRenameSubmit                   string
+	HostTagsNameRequired                   string
 	SettingsPrivacyMode                    string
 	SettingsPrivacyModeDescription         string
 	SettingsTabNumberKeys                  string
@@ -1048,6 +1057,9 @@ type Messages struct {
 	SFTPDeleteSelectionTitle    string
 	SFTPDeleteSelectionFmt      string
 	SFTPDeleteSelectionPartial  string
+	SFTPMoveSelectionTitle      string
+	SFTPMoveSelectionPartial    string
+	SFTPMovedCountFmt           string
 	SFTPDeleteDescriptionFmt    string
 	// SFTPDeleteFolderContentsFmt says a folder goes with everything inside it:
 	// the panel deletes a folder's contents too, not only an empty folder.

@@ -142,6 +142,7 @@ type savedState struct {
 	CommandHistory          bool                `json:"command_history,omitempty"`
 	CommandSuggestOff       bool                `json:"command_suggest_off,omitempty"`
 	NoteView                savedNoteView       `json:"notes_view,omitempty"`
+	NoteWindowMode          string              `json:"note_window_mode,omitempty"`
 	Notes                   []savedNote         `json:"notes,omitempty"`
 	NoteFolders             []savedNoteFolder   `json:"note_folders,omitempty"`
 	// SessionLogsOff stops the local session journal. Unset means capture is on;
@@ -594,6 +595,9 @@ func (state *State) snapshot() savedState {
 	saved.Autofill = state.savedAutofillRules()
 	saved.Credentials = state.savedCredentials()
 	saved.NoteView = state.savedNotesView()
+	if state.noteWindowModeKnown {
+		saved.NoteWindowMode = string(state.noteWindowMode)
+	}
 	saved.Notes = append([]savedNote(nil), state.notes.list...)
 	saved.NoteFolders = append([]savedNoteFolder(nil), state.notes.folders...)
 	for index, entry := range state.snippets.list {
@@ -937,6 +941,9 @@ func (state *State) reloadSettings() error {
 // fonts, what it does at start, the keys it has, the cloud account, the picture.
 func (state *State) restoreLocal(saved savedState) {
 	state.notes.panel = saved.NoteView.Panel
+	if mode := noteMode(saved.NoteWindowMode); mode == noteSource || mode == notePreview || mode == noteSplit {
+		state.noteWindowMode, state.noteWindowModeKnown = mode, true
+	}
 	state.restoreNotesView(saved.NoteView)
 	state.notes.selected = saved.NoteView.Selected
 	state.notes.folder = saved.NoteView.Folder

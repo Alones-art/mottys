@@ -340,9 +340,11 @@ func (s *State) noteViewClick(id gfx.ID) bool {
 			if v.mode == notePreview {
 				v.focus = id
 			}
-			if !n.windowView {
-				s.save()
+			if n.windowView {
+				// The window remembers the mode it last used and opens with it.
+				s.noteWindowMode, s.noteWindowModeKnown = v.mode, true
 			}
+			s.save()
 			return true
 		}
 		if token, ok := id.In(hitNoteTagRows); ok {

@@ -186,6 +186,14 @@ func TestRightClickingASnippetRowOpensItsMenu(t *testing.T) {
 
 	state.Click(hitSnippets)
 	pointer(state, gfx.PointerEvent{Kind: gfx.PointerDown, Button: gfx.PointerButtonSecondary, Target: hitSnippetRowList.At(0)})
+	// The first press arms the menu's delete; the second one deletes.
+	state.Click(hitSnippetMenuDelete)
+	if len(state.snippets.list) != 2 {
+		t.Fatalf("the armed press must not delete: %+v", state.snippets.list)
+	}
+	// The menu closed on the first press: opening it again shows the armed
+	// label, and the press on it now really deletes.
+	pointer(state, gfx.PointerEvent{Kind: gfx.PointerDown, Button: gfx.PointerButtonSecondary, Target: hitSnippetRowList.At(0)})
 	state.Click(hitSnippetMenuDelete)
 	if len(state.snippets.list) != 1 || state.snippets.list[0].Name != "b" {
 		t.Fatalf("snippets after delete: %+v", state.snippets.list)
