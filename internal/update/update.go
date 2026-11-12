@@ -146,6 +146,21 @@ func Latest(ctx context.Context, client *http.Client, feed string) (Release, err
 	return release, err
 }
 
+// releaseName is the versioned name a GitHub release gives the package of a
+// platform, or "" for one it does not build. The mirror keeps stable names, but
+// a release stamps its version into every file it carries.
+func releaseName(version, goos, goarch string, pkg Package) string {
+	stable := StableNamePackage(goos, goarch, pkg)
+	if stable == "" {
+		return ""
+	}
+	if pkg == PackageDeb {
+		arch := stable[strings.LastIndex(stable, "_")+1:]
+		return "motty_" + version + "_" + arch + ".deb"
+	}
+	return "motty-" + version + "-" + strings.TrimPrefix(stable, "motty-")
+}
+
 // latestGitHubPackage turns the release's own assets into what the mirror would
 // answer: the package for the asking platform, its checksum and its signature,
 // all read from the release the feed names. The package's download address is
@@ -157,7 +172,10 @@ func latestGitHubPackage(ctx context.Context, client *http.Client, feed, goos, g
 	if err != nil {
 		return Release{}, err
 	}
-	stable := StableNamePackage(goos, goarch, pkg)
+	stable := releaseName(release.Version, goos, goarch, pkg)
+	if stable == "" {
+		return release, nil
+	}
 	var packageAsset, checksums, signatures *releaseAsset
 	for index := range assets {
 		switch assets[index].Name {

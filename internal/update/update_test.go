@@ -279,11 +279,11 @@ func githubFeedServer(t *testing.T, sums, signatures string, feed func(base stri
 // and the package address is built from the feed, never from the answer.
 func TestGitHubReleaseAssetsAreTheMirror(t *testing.T) {
 	server := githubFeedServer(t,
-		checksumHash+"  motty-windows-amd64.zip\n",
-		"motty-windows-amd64.zip\tsignature-bytes\n",
+		checksumHash+"  motty-1.2.3-windows-amd64.zip\n",
+		"motty-1.2.3-windows-amd64.zip\tsignature-bytes\n",
 		func(base string) string {
 			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
-		  "assets":[{"name":"motty-windows-amd64.zip","size":123456,"browser_download_url":"https://evil.example/steal"},
+		  "assets":[{"name":"motty-1.2.3-windows-amd64.zip","size":123456,"browser_download_url":"https://evil.example/steal"},
 		            {"name":"SHA256SUMS","size":10,"browser_download_url":"` + base + `/SHA256SUMS"},
 		            {"name":"SIGNATURES","size":10,"browser_download_url":"` + base + `/SIGNATURES"}]}`
 		},
@@ -293,10 +293,10 @@ func TestGitHubReleaseAssetsAreTheMirror(t *testing.T) {
 	if err != nil {
 		t.Fatalf("checking the feed: %v", err)
 	}
-	if !release.PlatformPackageChecked || release.Asset.Name != "motty-windows-amd64.zip" {
+	if !release.PlatformPackageChecked || release.Asset.Name != "motty-1.2.3-windows-amd64.zip" {
 		t.Fatalf("the package was not checked: %+v", release.Asset)
 	}
-	if release.Asset.URL != "https://github.com/Alones-art/mottys/releases/download/v1.2.3/motty-windows-amd64.zip" {
+	if release.Asset.URL != "https://github.com/Alones-art/mottys/releases/download/v1.2.3/motty-1.2.3-windows-amd64.zip" {
 		t.Fatalf("the download address must come from the feed, not the answer: %q", release.Asset.URL)
 	}
 	if release.Asset.SHA256 != checksumHash || release.Asset.Signature != "signature-bytes" || release.Asset.Size != 123456 {
@@ -313,7 +313,7 @@ func TestGitHubReleaseWithoutManifestsOnlyAnnounces(t *testing.T) {
 		"", "",
 		func(base string) string {
 			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
-		  "assets":[{"name":"motty-windows-amd64.zip","size":123456,"browser_download_url":"https://github.com/x"}]}`
+		  "assets":[{"name":"motty-1.2.3-windows-amd64.zip","size":123456,"browser_download_url":"https://github.com/x"}]}`
 		},
 	)
 	feed := server.URL + "/repos/Alones-art/mottys/releases/latest"
@@ -329,11 +329,11 @@ func TestGitHubReleaseWithoutManifestsOnlyAnnounces(t *testing.T) {
 // A checksum the manifest cannot hold is refused, not trusted.
 func TestGitHubFeedRefusesAMalformedChecksum(t *testing.T) {
 	server := githubFeedServer(t,
-		"short  motty-windows-amd64.zip\n",
-		"motty-windows-amd64.zip\tsig\n",
+		"short  motty-1.2.3-windows-amd64.zip\n",
+		"motty-1.2.3-windows-amd64.zip\tsig\n",
 		func(base string) string {
 			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
-		  "assets":[{"name":"motty-windows-amd64.zip","size":1,"browser_download_url":"https://github.com/x"},
+		  "assets":[{"name":"motty-1.2.3-windows-amd64.zip","size":1,"browser_download_url":"https://github.com/x"},
 		            {"name":"SHA256SUMS","size":10,"browser_download_url":"` + base + `/SHA256SUMS"},
 		            {"name":"SIGNATURES","size":10,"browser_download_url":"` + base + `/SIGNATURES"}]}`
 		},
