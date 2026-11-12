@@ -20,8 +20,8 @@ const (
 	aboutQQURL      = "https://qm.qq.com/cgi-bin/qm/qr?k=&group_code=1131573299"
 	aboutWeChatURL  = "https://docs.qq.com/doc/DVXBGYnFFdm9UWkVP"
 	aboutDiscordURL = "https://discord.gg/6s5tn9H4p2"
-	aboutIssuesURL  = "https://github.com/t8y2/motty/issues"
-	aboutRepoURL    = "https://github.com/t8y2/motty"
+	aboutIssuesURL  = "https://github.com/Alones-art/mottys/issues"
+	aboutRepoURL    = "https://github.com/Alones-art/mottys"
 	aboutDocsURL    = "https://motty.page"
 	aboutVivaURL    = "https://vivaui.dev"
 )

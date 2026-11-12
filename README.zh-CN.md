@@ -27,6 +27,8 @@ Motty 是一个桌面 SSH 客户端。终端、SFTP 面板、端口转发、远�
 
 本项目基于 [t8y2/motty](https://github.com/t8y2/motty) v0.3.9 修改，以下为相对上游的改动（其余内容与上游一致）：
 
+> 本 fork 的构建版本号为 `0.3.10`（在 upstream 0.3.9 基础上叠加以下改动），与上游发布线相互独立，上游更高的版本号（如 v0.4.x）不是本构建的"更新"。
+
 - **更新检查源改为本仓库**：`internal/update/update.go` 中的 `Feed` 指向
   `https://api.github.com/repos/Alones-art/mottys/releases/latest`，新版本提示
   依据本仓库发布的 release（tag 高于本机版本即提示）。

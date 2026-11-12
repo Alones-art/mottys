@@ -28,6 +28,9 @@ the project, the packages and how to build it.
 ## Changes in this fork
 
 This project is based on [t8y2/motty](https://github.com/t8y2/motty) v0.3.9.
+This fork's own build version is `0.3.10` (upstream 0.3.9 plus the changes
+below); it is independent of upstream's release line, so do not treat a newer
+upstream tag as an update to this build.
 The changes below are relative to upstream; everything else matches it:
 
 - **The update feed now points at this repository**: the `Feed` constant in
