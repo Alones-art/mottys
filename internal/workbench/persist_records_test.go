@@ -32,7 +32,7 @@ func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 		"host_view":                    true, "background": true, "snippet_shortcuts": true,
 		"background_output_alerts": true,
 		"tab_orientation":          true, "vertical_tabs_auto_hide": true,
-		"tab_numbers":            true, "hide_local_shells": true,
+		"tab_numbers": true, "hide_local_shells": true,
 		"vertical_tabs_grouping": true,
 		"note_window_mode":       true,
 		"workspace_layouts":      true,

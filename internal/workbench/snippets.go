@@ -85,10 +85,10 @@ type snippetsUI struct {
 
 	// The page's table scrolls: where it is, whether its thumb is held, where
 	// on the thumb the hold began, and the bar's last geometry.
-	scroll        float32
+	scroll         float32
 	scrollDragging bool
-	scrollGrab    float32
-	scrollBar     components.ScrollAreaGeometry
+	scrollGrab     float32
+	scrollBar      components.ScrollAreaGeometry
 
 	// The page's group filter: the groups there are, the list indices it shows
 	// in the order it shows them, and the filter's popup.
