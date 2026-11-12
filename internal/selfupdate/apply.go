@@ -116,3 +116,91 @@ func (job Job) applyLinux() error {
 	}
 	return nil
 }
+
+// applyWindowsPortable replaces a portable copy's program in place. The zip
+// holds motty.exe beside a motty-data directory; the data is the user's and is
+// never overwritten, and files the new version brings that this copy does not
+// have yet are added. Windows may rename a running image but not delete it, so
+// the old executable is set aside first, as the setup path does.
+func (job Job) applyWindowsPortable() error {
+	name := filepath.Base(job.Exe)
+	staged := filepath.Join(job.Staged, name)
+	info, err := os.Stat(staged)
+	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+		return fmt.Errorf("the package does not hold a usable %s", name)
+	}
+	prefix := "." + name + "-update-"
+	dir, err := os.MkdirTemp(job.Root, prefix)
+	if err != nil {
+		return fmt.Errorf("preparing the previous executable: %w", err)
+	}
+	previous := filepath.Join(dir, "previous.exe")
+	if err := os.Rename(job.Exe, previous); err != nil {
+		os.Remove(dir)
+		return fmt.Errorf("setting the previous executable aside (close other Motty processes and retry): %w", err)
+	}
+	err = installPortableFiles(job.Root, job.Staged, name)
+	if err != nil {
+		if restoreErr := restoreExecutable(job.Exe, previous, dir, os.Remove); restoreErr != nil {
+			return errors.Join(err, restoreErr)
+		}
+		return err
+	}
+	cleanRetiredExecutables(job.Root, prefix)
+	return nil
+}
+
+// installPortableFiles copies the new program into place and adds the files the
+// new version carries that this copy does not have yet. Existing files are
+// never overwritten: motty-data is the user's, and anything a portable copy
+// gained by hand stays.
+func installPortableFiles(root, staged, name string) error {
+	exe := filepath.Join(root, name)
+	temp := exe + ".new"
+	if err := copyFile(filepath.Join(staged, name), temp); err != nil {
+		return fmt.Errorf("placing the new executable: %w", err)
+	}
+	if err := os.Rename(temp, exe); err != nil {
+		os.Remove(temp)
+		return fmt.Errorf("installing the new executable: %w", err)
+	}
+	return filepath.WalkDir(staged, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		relative, err := filepath.Rel(staged, path)
+		if err != nil || relative == name {
+			return err
+		}
+		target := filepath.Join(root, filepath.FromSlash(relative))
+		if _, err := os.Stat(target); err == nil {
+			return nil // already here: the user's, never overwritten
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return copyFile(path, target)
+	})
+}
+
+// copyFile writes source to destination through a plain copy, keeping the mode.
+func copyFile(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	info, err := input.Stat()
+	if err != nil {
+		return err
+	}
+	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(output, input); err != nil {
+		output.Close()
+		return err
+	}
+	return output.Close()
+}
