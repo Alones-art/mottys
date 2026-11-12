@@ -12,14 +12,14 @@
 # The tag is the approval: *Checksums* refuses the release unless it is exactly
 # the fourteen assets, its SHA256SUMS matches the files, every signature verifies
 # against the key compiled into the app, and the notes name the Viva frame that
-# was built. *Publish* then copies the packages to the mirror, publishes that
-# verified draft, and flips the update feed last, so nothing public ever points
-# at bytes the mirror does not hold; it refuses to run without the mirror's
-# secrets, because a release nobody can download is not a release.
+# was built. *Publish* then publishes the verified draft. This fork has no
+# mirror: the update feed is the GitHub release itself, so publishing the draft
+# is the last public step.
 #
-# The framework is vivaui/viva main as it stands when the release starts: one job
-# resolves the commit, every build job checks out that same commit, and the commit
-# is written into the release notes. Setup and secrets: docs/release.md.
+# The framework is vivaui/viva at a pinned commit. This fork's code is written
+# against that commit's API; viva main moves and breaks it, so the release
+# builds one fixed frame instead of resolving main. Setup and secrets:
+# docs/release.md.
 name: Release
 
 on:
@@ -40,15 +40,13 @@ jobs:
     outputs:
       commit: ${{ steps.resolve.outputs.commit }}
     steps:
-      # Resolved once, before either build starts, so a push to viva main while
-      # the release runs cannot give the Mac and the Linux jobs different frames.
-      - name: Resolve vivaui/viva main
+      # Pinned rather than resolved from main: the fork's code compiles against
+      # this exact frame, and a newer viva main is free to rename its API.
+      - name: Pin vivaui/viva
         id: resolve
-        env:
-          GH_TOKEN: ${{ secrets.REED_REPO_TOKEN || github.token }}
         run: |
-          commit=$(gh api repos/vivaui/viva/commits/main --jq .sha)
-          echo "vivaui/viva main is $commit"
+          commit=0c11a3d0950d2859f1c9737daf970fca8b606966
+          echo "vivaui/viva is pinned at $commit"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
   release-ready:
@@ -289,48 +287,7 @@ jobs:
           mkdir -p "$dir"
           gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir "$dir"
 
-      # The bytes reach the mirror before anything is public, so the release
-      # page, the website's download links and the update feed never point at
-      # files that are not there yet. Still a draft: only --copy runs here.
-      # Without the mirror's secrets the release stops here, because the mirror
-      # is what an installed copy updates from.
-      - name: Copy the packages to the mirror
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID: the mirror is the update feed"
-            exit 1
-          fi
-          tools/mirror-release.sh "$GITHUB_REF_NAME" --copy --dir "$RUNNER_TEMP/release"
-
       - name: Publish the verified release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
-
-      # The update feed flips last, and only after the copy above confirmed the
-      # packages are on the mirror: this is the moment installed copies start
-      # updating. A failure here leaves the release public but the feed on the
-      # previous version; run Mirror release with the tag to finish it.
-      - name: Announce the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: tools/mirror-release.sh "$GITHUB_REF_NAME" --announce --dir "$RUNNER_TEMP/release"
-
-      # The tap and the Scoop bucket are what `brew` and `scoop` hand out, so
-      # they follow the packages and the mirror rather than leading them. The
-      # run is separate so a broken manifest can be fixed by running Packages
-      # for the tag; nothing here depends on it having finished.
-      - name: Update the package managers
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run packages.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref "$GITHUB_REF_NAME" \
-            -f tag="$GITHUB_REF_NAME"
