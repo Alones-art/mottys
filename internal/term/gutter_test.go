@@ -51,3 +51,27 @@ func TestNoClockRecordsNothing(t *testing.T) {
 		t.Fatalf("written = %d without a clock", got)
 	}
 }
+
+// A line rewritten in place keeps its newest write time; a line built by
+// appending keeps its start.
+func TestRewrittenLineRefreshesItsWriteTime(t *testing.T) {
+	screen := New(10, 3, 100)
+	now := int64(0)
+	screen.SetClock(func() int64 { return now })
+
+	now = 100
+	screen.Write([]byte("one"))
+	now = 200
+	screen.Write([]byte("\rx")) // a rewrite: the first cell already had content
+	if got := screen.Row(0).Written; got != 200 {
+		t.Fatalf("rewritten row written = %d, want 200", got)
+	}
+
+	now = 300
+	screen.Write([]byte("\r\nanother"))
+	now = 400
+	screen.Write([]byte("!")) // appends at the end of the line
+	if got := screen.Row(1).Written; got != 300 {
+		t.Fatalf("appended row written = %d, want 300", got)
+	}
+}

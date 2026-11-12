@@ -255,12 +255,20 @@ func TestDoubleClickingARowConnectsToIt(t *testing.T) {
 		{Kind: gfx.PointerMove, ClickCount: 0, Target: hitHostList.At(2)},
 		{Kind: gfx.PointerDown, ClickCount: 2, Target: hitAddHost},
 		{Kind: gfx.PointerDown, ClickCount: 2, Target: hitKeychain},
-		{Kind: gfx.PointerDown, ClickCount: 2, Target: hitTabList.At(1)},
 		{Kind: gfx.PointerDown, ClickCount: 2, Target: gfx.ID{}},
 	} {
 		if result := pointer(state, event); result.Handled || len(world.configs) != 0 {
 			t.Fatalf("%+v connected or was handled", event)
 		}
+	}
+	// A double click on a tab's name renames it in place instead of connecting.
+	if len(state.workspaceTabs) > 0 {
+		result := pointer(state, gfx.PointerEvent{Kind: gfx.PointerDown, ClickCount: 2,
+			Target: hitTabList.At(int(state.workspaceTabs[0].ID))})
+		if !result.Handled || state.modal != modalRenameTab || len(world.configs) != 0 {
+			t.Fatalf("double click on a tab: %+v modal=%v dials=%d", result, state.modal, len(world.configs))
+		}
+		state.modal = modalNone
 	}
 
 	// Two quick right clicks count as a double press, but only the primary

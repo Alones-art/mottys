@@ -45,6 +45,11 @@ const (
 var snippetsHits = tree.Feature("snippets")
 
 var (
+	hitSnippetTable  = tree.ID(snippetsHits, "snippet-table")
+	hitSnippetScroll = tree.ID(snippetsHits, "snippet-scroll")
+)
+
+var (
 	hitSnippetAdd         = tree.ID(snippetsHits, "snippet-add")
 	hitSnippetEdit        = tree.ID(snippetsHits, "snippet-edit")
 	hitSnippetSend        = tree.ID(snippetsHits, "snippet-send")
@@ -77,6 +82,13 @@ type snippetsUI struct {
 	// the next press on that same snippet really deletes, any other list
 	// change disarms it.
 	deleteArmed int
+
+	// The page's table scrolls: where it is, whether its thumb is held, where
+	// on the thumb the hold began, and the bar's last geometry.
+	scroll        float32
+	scrollDragging bool
+	scrollGrab    float32
+	scrollBar     components.ScrollAreaGeometry
 
 	// The page's group filter: the groups there are, the list indices it shows
 	// in the order it shows them, and the filter's popup.

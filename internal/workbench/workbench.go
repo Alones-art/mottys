@@ -609,6 +609,9 @@ type State struct {
 	keysMenu          bool
 	keysAddButton     gfx.Rect
 	hostsBounds       gfx.Rect // the hosts page as last painted; the menus anchor to it
+	hostListBarHover  bool     // the pointer is over the hosts page: the bar shows
+	hostListBarDrag   bool     // the hosts page's scrollbar thumb is being dragged
+	hostListBarGrab   float32  // where on the thumb the drag started
 	terminalMenu      terminalMenu
 	hostGroupEditor   text.Editor
 	hostTagEditor     text.Editor // the tag-rename dialog's field
@@ -2274,6 +2277,15 @@ func (state *State) Pointer(event gfx.PointerEvent) (outcome gfx.EventResult) {
 		defer func() { outcome.Repaint = true }()
 	}
 	if result, handled := state.windowBarScrollbarPointer(event); handled {
+		return result
+	}
+	if state.trackHostListBar(event) {
+		defer func() { outcome.Repaint = true }()
+	}
+	if result, handled := state.hostListBarPointer(event); handled {
+		return result
+	}
+	if result, handled := state.snippetsScrollPointer(event); handled {
 		return result
 	}
 	if result := state.toolbarDockPointer(event); result.Handled {

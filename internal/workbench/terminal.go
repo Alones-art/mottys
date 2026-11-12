@@ -441,7 +441,10 @@ func (t *terminal) write(p []byte) {
 // prediction compare the screen with what was typed, so an echo of it confirms
 // the overlay instead of dropping it.
 func (t *terminal) writeRemote(p []byte, now time.Duration) {
-	t.selection.clear()
+	// Output arriving does not take the selection away: text selected while a
+	// command streams stays selected until a click or the user's own typing
+	// ends it. The highlight is anchored to the screen, so rows the output
+	// scrolls away drift with it, which beats losing the selection outright.
 	t.screen.Write(p)
 	t.prediction.reconcile(t.screen, now)
 	if t.inputGuard.active && cmdhistory.PasswordPrompt(t.screen.RowText(t.screen.Cursor().Y)) {
@@ -1646,6 +1649,9 @@ func (state *State) Scroll(event gfx.ScrollEvent) gfx.EventResult {
 func (state *State) scroll(event gfx.ScrollEvent) gfx.EventResult {
 	if state.activeSection == sectionSettings && state.modal == modalNone {
 		return state.scrollSettings(event)
+	}
+	if state.activeSection == sectionSnippets && state.modal == modalNone {
+		return state.scrollSnippets(event)
 	}
 	if state.activeSection == sectionHosts && state.modal == modalNone && state.hostsContent > 0 {
 		return state.scrollHosts(event)

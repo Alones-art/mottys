@@ -79,6 +79,10 @@ Also written for this fork on its own terms, without merging upstream code:
 - SFTP multi-select can move entries to another folder, each keeping its name; a failure mid-way reports what already moved.
 - The settings gained a "Host tags" manager: it lists every tag with the host count, and renaming or deleting applies to all hosts at once; deleting needs a second press.
 - Deleting a snippet needs confirmation: the first press only arms the delete button, and pressing the same delete again removes it.
+- Double clicking a tab's name renames it in place (a pane's bar already did).
+- The host list's scrollbar appears on hover and can be dragged.
+- The snippets page's table scrolls: however long the list grows, everything stays reachable.
+- Output arriving no longer takes the terminal selection away, and a rewritten line refreshes its gutter time.
 
 "Open a local tab in the last folder" and "stack the document comparison in a narrow window" already existed in this 0.3.9 baseline.
 

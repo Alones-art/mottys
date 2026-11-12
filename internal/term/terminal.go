@@ -1097,9 +1097,15 @@ func (t *Terminal) SetClock(now func() int64) { t.clock = now }
 // screen.
 func (t *Terminal) LineNumber(i int) uint64 { return t.scrolled - uint64(t.view) + uint64(i) + 1 }
 
-// stamp records the first write to l.
+// stamp records when l was last written. A line's first write stamps it, and a
+// run landing inside the columns the line already holds refreshes it: a prompt
+// or a progress line that rewrites itself keeps its newest time, while a line
+// built by appending keeps its start.
 func (t *Terminal) stamp(l *line) {
-	if t.clock != nil && l.at == 0 {
+	if t.clock == nil {
+		return
+	}
+	if l.at == 0 || (l.used > 0 && t.cx < l.used) {
 		l.at = t.clock()
 	}
 }

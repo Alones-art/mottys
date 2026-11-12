@@ -1772,12 +1772,12 @@ func (state *State) paintHostTable(canvas *gfx.Canvas, treeBounds gfx.Rect) {
 	// and out of reach. The bar is Viva's scroll area: it keeps its own strip out
 	// of the rows and paints nothing at all while the content fits.
 	content := state.hostListHeight(treeBounds.Width)
-	area, geometry := hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll)
+	area, geometry := hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll, state.hostListBarHover || state.hostListBarDrag)
 	if geometry.MaxOffsetY > 0 {
 		// Taking the bar's strip narrows the list; the cards pack to the width they
 		// are really given, so read the height again at the reserved width.
 		content = state.hostListHeight(geometry.Viewport.Width)
-		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll)
+		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll, state.hostListBarHover || state.hostListBarDrag)
 	}
 	if state.hostRevealID != 0 {
 		// The revealed row is found at the width the list really has, bar included.
@@ -1788,12 +1788,12 @@ func (state *State) paintHostTable(canvas *gfx.Canvas, treeBounds gfx.Rect) {
 		}
 		canvas.RequestFocus(focus)
 		state.hostRevealID = 0
-		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll)
+		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll, state.hostListBarHover || state.hostListBarDrag)
 	}
 	state.hostsContent, state.hostsScroll = content, geometry.OffsetY
 	viewport := geometry.Viewport
 	if state.hostSortAutoScrollFrame(canvas, viewport, content) {
-		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll)
+		area, geometry = hostListScrollArea(canvas, state.Theme(), treeBounds, content, state.hostsScroll, state.hostListBarHover || state.hostListBarDrag)
 		state.hostsScroll = geometry.OffsetY
 		viewport = geometry.Viewport
 	}
@@ -1899,13 +1899,14 @@ func (state *State) hostListHeight(width float32) float32 {
 // hostListScrollArea is how the hosts list scrolls: Viva's scroll area owns the
 // bar, keeping its strip out of the rows and painting the thumb from the list's
 // content height. Nothing is painted while the content fits.
-func hostListScrollArea(canvas *gfx.Canvas, theme gfx.Theme, bounds gfx.Rect, content, offset float32) (components.ScrollArea, components.ScrollAreaGeometry) {
+func hostListScrollArea(canvas *gfx.Canvas, theme gfx.Theme, bounds gfx.Rect, content, offset float32, revealed bool) (components.ScrollArea, components.ScrollAreaGeometry) {
 	// Width zero says the list has no horizontal extent of its own: it is laid out
-	// to geometry.Viewport.Width, so no horizontal bar is ever due.
+	// to geometry.Viewport.Width, so no horizontal bar is ever due. The bar
+	// reveals itself while the pointer is over the page and its thumb drags.
 	area := components.BeginScrollArea(canvas, theme, bounds, gfx.Size{Height: content}).
 		Offset(0, offset).
 		ReserveScrollbars().
-		VerticalScrollbar(gfx.ID{}, "", "")
+		VerticalScrollbar(hitHostListBar, "", "").HoverScrollbars(revealed)
 	return area, area.Geometry()
 }
 

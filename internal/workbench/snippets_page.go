@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/vivaui/viva/components"
@@ -160,19 +161,48 @@ func (state *State) paintSnippetsWorkspace(canvas *gfx.Canvas, bounds gfx.Rect) 
 			}
 		}
 	}
-	components.FitSortableTableHeadings(canvas, state.Theme(), columns[:], headers[:])
-	table := components.BeginTable(canvas, state.Theme(), content.Rect(), columns[:])
-	table.SortableHeader(headers[:])
+	// The heading strip stays fixed and the rows scroll under it: however long
+	// the list grows, every snippet stays reachable.
+	rowHeight, headerHeight := components.TableRowHeight(theme), components.TableHeaderHeight(theme)
+	headerBounds := content.Rect()
+	headerBounds.Height = headerHeight
+	bodyBounds := content.Rect()
+	bodyBounds.Y += headerHeight
+	bodyBounds.Height = max(bodyBounds.Height-headerHeight, 0)
+	header := components.BeginTable(canvas, theme, headerBounds, columns[:]).HeaderHeight(headerHeight).RowHeight(rowHeight)
+	header.SortableHeader(headers[:])
+
+	contentHeight := max(float32(len(form.visible))*rowHeight, bodyBounds.Height)
+	area := components.BeginScrollArea(canvas, theme, bodyBounds, gfx.Size{Width: bodyBounds.Width, Height: contentHeight}).
+		Offset(0, form.scroll).
+		Viewport(hitSnippetTable, m.SnippetsTitle).
+		VerticalScrollbar(hitSnippetScroll, m.SnippetsTitle, "")
+	geometry := area.Geometry()
+	form.scroll = geometry.OffsetY
+	form.scrollBar = geometry
+	geometry = area.BeginContent()
+	form.scroll = geometry.OffsetY
+
+	first := min(max(int(math.Floor(float64(geometry.OffsetY/rowHeight))), 0), len(form.visible))
+	last := min(first+int(math.Ceil(float64(geometry.Viewport.Height/rowHeight)))+1, len(form.visible))
+	remainder := float32(math.Mod(float64(geometry.OffsetY), float64(rowHeight)))
+	tableBounds := gfx.Rect{
+		X: geometry.Viewport.X, Y: geometry.Viewport.Y - remainder,
+		Width:  geometry.Viewport.Width,
+		Height: min(geometry.Viewport.Height+rowHeight, float32(last-first)*rowHeight),
+	}
+	table := components.BeginTable(canvas, theme, tableBounds, columns[:]).RowHeight(rowHeight)
+
 	var grid components.ReorderGrid
 	if manualOrder {
-		grid = components.BeginReorderGrid(canvas, theme, content.Rect(), &form.grid)
+		grid = components.BeginReorderGrid(canvas, theme, tableBounds, &form.grid)
 		for index := range form.list {
 			grid.Order(hitSnippetHandles.At(index), 0, index, false)
 		}
 	} else {
 		form.grid.Cancel()
 	}
-	for _, index := range form.visible {
+	for _, index := range form.visible[first:last] {
 		rowID := hitSnippetRowList.At(index)
 		var cellRects [4]gfx.Rect
 		row := table.RowLayout(rowID, form.list[index].cells[:], components.TableRowState{Selected: index == form.selected}, cellRects[:0])
@@ -193,7 +223,66 @@ func (state *State) paintSnippetsWorkspace(canvas *gfx.Canvas, bounds gfx.Rect) 
 	if manualOrder {
 		grid.End()
 	}
+	area.EndContent()
 	if len(form.groups) > 0 {
 		state.paintSnippetFilter(canvas, filter.Rect())
 	}
+}
+
+// snippetsScrollPointer drags the snippets table's scrollbar. It only speaks
+// while the snippets page is in front and the list actually overflows.
+func (state *State) snippetsScrollPointer(event gfx.PointerEvent) (gfx.EventResult, bool) {
+	if state.activeSection != sectionSnippets || state.modal != modalNone {
+		return gfx.EventResult{}, false
+	}
+	form := &state.snippets
+	if form.scrollBar.MaxOffsetY <= 0 && !form.scrollDragging {
+		return gfx.EventResult{}, false
+	}
+	geometry := form.scrollBar
+	before := form.scroll
+	switch event.Kind {
+	case gfx.PointerDown:
+		if event.Button != gfx.PointerButtonPrimary || event.Target != hitSnippetScroll {
+			return gfx.EventResult{}, false
+		}
+		form.scrollDragging = true
+		form.scrollGrab = geometry.VerticalThumb.Height / 2
+		if event.Y >= geometry.VerticalThumb.Y && event.Y < geometry.VerticalThumb.Y+geometry.VerticalThumb.Height {
+			form.scrollGrab = event.Y - geometry.VerticalThumb.Y
+		} else {
+			form.scroll = geometry.VerticalOffsetForThumb(event.Y - form.scrollGrab)
+		}
+	case gfx.PointerMove:
+		if !form.scrollDragging || !event.Captured {
+			return gfx.EventResult{}, false
+		}
+		form.scroll = geometry.VerticalOffsetForThumb(event.Y - form.scrollGrab)
+	case gfx.PointerUp:
+		if !form.scrollDragging {
+			return gfx.EventResult{}, false
+		}
+		form.scrollDragging = false
+		return gfx.EventResult{Handled: true, Repaint: true}, true
+	case gfx.PointerExit:
+		if !form.scrollDragging || !event.Captured {
+			return gfx.EventResult{}, false
+		}
+		return gfx.EventResult{Handled: true}, true
+	default:
+		return gfx.EventResult{}, false
+	}
+	return gfx.EventResult{Handled: true, Repaint: before != form.scroll}, true
+}
+
+// scrollSnippets moves the snippets table with the wheel.
+func (state *State) scrollSnippets(event gfx.ScrollEvent) gfx.EventResult {
+	form := &state.snippets
+	if form.scrollBar.MaxOffsetY <= 0 {
+		return gfx.EventResult{}
+	}
+	before := form.scroll
+	step := event.StepY(components.TableRowHeight(state.Theme()))
+	form.scroll = min(max(form.scroll+step, 0), form.scrollBar.MaxOffsetY)
+	return gfx.EventResult{Handled: true, Repaint: form.scroll != before}
 }

@@ -781,3 +781,23 @@ func TestAPlainClickAfterAWordSelectionGoesBackToCells(t *testing.T) {
 		t.Fatalf("a cell drag after a word selection selected %q", got)
 	}
 }
+
+// Output arriving does not take the selection away: text selected while a
+// command streams stays selected until a click or typing ends it.
+func TestSelectionSurvivesOutputArriving(t *testing.T) {
+	_, session, _ := selectionState()
+	session.term.screen.Write([]byte("keep me selected\r\n"))
+	session.term.selection.selectRange(
+		session.term.screen.PointAt(term.Position{Row: 0, Column: 0}),
+		session.term.screen.PointAt(term.Position{Row: 0, Column: 4}),
+	)
+	session.term.writeRemote([]byte("more output arrives\r\n"), 0)
+	if !session.term.selection.selected {
+		t.Fatal("output arriving took the selection away")
+	}
+	// The user's own typing still ends it, as it always did.
+	session.term.write([]byte("n"))
+	if session.term.selection.selected {
+		t.Fatal("typing did not end the selection")
+	}
+}

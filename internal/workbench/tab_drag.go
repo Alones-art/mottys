@@ -115,6 +115,12 @@ func (state *State) tabDragPointer(event gfx.PointerEvent) (gfx.EventResult, boo
 		if state.modal == modalNone && (event.Button == gfx.PointerButtonPrimary || event.Button == gfx.PointerButtonNone) &&
 			event.Target.Scope() == hitTabList {
 			id := layoutcore.WorkspaceID(item(event.Target))
+			// A double click on the tab's name renames it in place, as it does
+			// on a pane's bar; the context menu stays one click away.
+			if event.ClickCount == 2 {
+				state.openTabRename(id)
+				return gfx.EventResult{Handled: true, Repaint: true}, true
+			}
 			for _, tab := range state.workspaceTabs {
 				if tab.ID == id {
 					*drag = tabDrag{pressed: true, workspace: id, title: state.tabLabel(tab), panes: tab.PaneCount, start: gfx.Point{X: event.X, Y: event.Y}}
