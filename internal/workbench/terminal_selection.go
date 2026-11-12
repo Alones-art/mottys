@@ -244,7 +244,13 @@ func (state *State) terminalPointer(session *Session, event gfx.PointerEvent) gf
 				state.terminalMenu.open = false
 				if err := state.options.SetClipboardText(terminal.selection.text(terminal.screen)); err != nil {
 					state.status = err.Error()
+					// A failed copy keeps the selection so the press can simply
+					// be repeated.
+					return gfx.EventResult{Handled: true, Repaint: true}
 				}
+				// The copy is done: dropping the selection lets the next plain
+				// right click paste instead of copying the same text again.
+				terminal.selection.clear()
 				return gfx.EventResult{Handled: true, Repaint: true}
 			}
 			// A program that asked for the mouse already had this press; what

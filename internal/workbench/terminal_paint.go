@@ -366,15 +366,23 @@ func (state *State) paintRailLabelCenter(canvas *gfx.Canvas, text string, bounds
 	size := metrics.FontSizeS
 	available := max(bounds.Width-4, 0)
 	if compact {
-		size = 10
-		// The titlebar slot is narrower than a rail's; one step down keeps the
-		// number readable there instead of eliding "42ms" to "42…".
-		if size > 9 && canvas.TextWidthWeight(text, size, gfx.WeightMedium) > available {
-			size = 9
-		}
+		size = compactLatencySize(func(size float32) float32 {
+			return canvas.TextWidthWeight(text, size, gfx.WeightMedium)
+		}, available)
 	}
 	fitted := elide(canvas, text, size, gfx.WeightMedium, available)
 	canvas.LabelCenter(fitted, bounds, gfx.TextStyle{Size: size, Weight: gfx.WeightMedium, Color: color})
+}
+
+// compactLatencySize picks the font size of a compact latency badge: it steps
+// down from 10 until the text fits or reaches 7, the smallest that stays
+// readable, so a high reading shrinks before any digit is cut off.
+func compactLatencySize(measure func(size float32) float32, available float32) float32 {
+	size := float32(10)
+	for size > 7 && measure(size) > available {
+		size--
+	}
+	return size
 }
 
 func (state *State) scrollTerminalToolbar(session *Session, event gfx.ScrollEvent) (gfx.EventResult, bool) {

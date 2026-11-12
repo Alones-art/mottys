@@ -417,9 +417,17 @@ func TestRightClickCopiesSelectionInsteadOfPasting(t *testing.T) {
 	if copied != "hello" || len(shell.input) != 0 || state.terminalMenu.open {
 		t.Fatalf("selected right click: copied=%q input=%q menu=%v", copied, shell.input, state.terminalMenu.open)
 	}
+	if session.term.selection.selected {
+		t.Fatal("a right-click copy kept the selection")
+	}
+	// With the selection dropped, the next plain right click pastes.
+	click(0)
+	if string(shell.input) != "paste" {
+		t.Fatalf("the right click after a copy did not paste: input=%q", shell.input)
+	}
 	click(gfx.ModifierShift)
-	if !state.terminalMenu.open || len(shell.input) != 0 {
-		t.Fatal("Shift+right click with a selection did not open the menu")
+	if !state.terminalMenu.open || string(shell.input) != "paste" {
+		t.Fatal("Shift+right click after a copy did not open the menu")
 	}
 }
 

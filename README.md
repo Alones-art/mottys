@@ -58,6 +58,8 @@ These were written for this fork on its own terms, without merging upstream code
 - An RDP server closing the connection after credentials were sent is treated as a disconnect, not a wrong password, and keeps the saved password.
 - Hosts get an "Interactive session only" switch: automatic banner, system, shell-integration and LANG probes are skipped for gateways that would drop the connection. The setting is persisted with the host.
 - A single damaged `known_hosts` line (a NUL tail or a truncated record) no longer blocks every connection: unreadable lines are dropped, the original is backed up as `known_hosts.bak` and replaced atomically. Clean files are untouched and key mismatches are still rejected.
+- With right-click paste enabled, a right click that copies the selection now clears it: the next plain right click pastes instead of copying the same text again. A failed copy keeps the selection so the press can be repeated.
+- The latency badge in a narrow toolbar slot steps its font down (10 to 7) instead of truncating, so a high reading still shows every digit.
 
 ### Features implemented here
 

@@ -57,6 +57,21 @@ func TestLatencyToggleAndPersistence(t *testing.T) {
 	}
 }
 
+// A compact latency badge shrinks its font before anything is cut off: a high
+// reading stays whole in a titlebar-sized slot.
+func TestCompactLatencySizeShrinksBeforeEliding(t *testing.T) {
+	seven := func(size float32) float32 { return 7 * size }
+	if got := compactLatencySize(seven, 60); got != 8 {
+		t.Fatalf("a reading that fits from 8 down should use size 8, got %v", got)
+	}
+	if got := compactLatencySize(seven, 40); got != 7 {
+		t.Fatalf("a reading that fits nowhere should use the floor 7, got %v", got)
+	}
+	if got := compactLatencySize(func(float32) float32 { return 10 }, 60); got != 10 {
+		t.Fatalf("a reading that fits at 10 must keep it, got %v", got)
+	}
+}
+
 func TestLatencyColorThresholds(t *testing.T) {
 	state := newTestState(t, testOptions(t))
 	state.terminalShowLatency = true
