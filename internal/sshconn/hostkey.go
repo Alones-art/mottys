@@ -35,7 +35,20 @@ func newHostKeys(path string) (*hostKeys, error) {
 	file.Close()
 	callback, err := knownhosts.New(path)
 	if err != nil {
-		return nil, fmt.Errorf("sshconn: read known hosts: %w", err)
+		// One damaged line used to take down every connection. Self-heal the
+		// file, then parse it again. A clean file is not touched, and a file that
+		// cannot be repaired still reports its original parse error.
+		repaired, repairErr := repairKnownHosts(path)
+		if repairErr != nil {
+			return nil, fmt.Errorf("sshconn: read known hosts: %w (repair: %v)", err, repairErr)
+		}
+		if !repaired {
+			return nil, fmt.Errorf("sshconn: read known hosts: %w", err)
+		}
+		callback, err = knownhosts.New(path)
+		if err != nil {
+			return nil, fmt.Errorf("sshconn: read known hosts after repair: %w", err)
+		}
 	}
 	return &hostKeys{path: path, callback: callback}, nil
 }
