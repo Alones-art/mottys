@@ -392,6 +392,12 @@ func (state *State) clickSettings(id gfx.ID) bool {
 		changed = state.setTabOrientation(tabsVertical)
 	case hitSettingsTabNumbers:
 		changed = state.setTabNumbers(!state.tabNumbers)
+	case hitSettingsHideLocalShells:
+		state.hideLocalShells = !state.hideLocalShells
+		changed = true
+	case hitSettingsPrivacyMode:
+		state.privacyMode = !state.privacyMode
+		changed = true
 	case hitSettingsTabNumbersPrimary, hitSettingsTabNumbersAlt, hitSettingsTabNumbersShift:
 		changed = state.setTabNumberModifier(id)
 	case hitSettingsOutputAlerts:

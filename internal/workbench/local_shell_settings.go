@@ -37,7 +37,10 @@ const wslListTimeout = 10 * time.Second
 
 // localShellsSupported is whether this computer lists its shells for the user
 // to choose from. All platforms do: Windows has pwsh/cmd, Unix has zsh/bash/sh.
-var localShellsSupported = true
+var (
+	localShellsSupported       = true
+	hitSettingsHideLocalShells = tree.ID(settingsHits, "hide-local-shells")
+)
 
 func localShellSettingVisible() bool { return localShellsSupported }
 

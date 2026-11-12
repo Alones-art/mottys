@@ -248,6 +248,7 @@ func (state *State) Paint(canvas *gfx.Canvas, size gfx.Size) {
 	})
 	f.End()
 	state.paintWindowBarParts(canvas, geometry.area)
+	state.paintWindowBarScrollbar(canvas)
 	if !fullPage {
 		state.paintLockup(canvas, chrome.lockup.Rect())
 	}
@@ -1999,25 +2000,25 @@ func (state *State) paintHostTreeRow(canvas *gfx.Canvas, row, content gfx.Rect, 
 					checkWidth, checkHeight := components.CheckboxHitExtent(state.Theme())
 					grip = f.Slot().Size(checkWidth, checkHeight).MarginSides(0, checkMargin, 0, 10)
 				} else {
-					f.Checkbox(hitHostCheckList.At(int(host.ID)), state.hostSelected(host.ID)).Label(host.Label).MarginSides(0, checkMargin, 0, 10)
+					f.Checkbox(hitHostCheckList.At(int(host.ID)), state.hostSelected(host.ID)).Label(state.hostDisplayName(host)).MarginSides(0, checkMargin, 0, 10)
 				}
 				avatar = f.Slot().Size(36, 36).MarginSides(0, 10, 0, 0)
 				f.Column().Width(nameWidth).Shrink(0).Gap(2).Children(func() {
-					f.Text(host.Label).FontSize(metrics.FontSizeM).Weight(gfx.WeightSemibold).Color(pal.text).LineHeight(22).Ellipsis()
-					f.Text(state.hostSubtitle(host)).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(19).Ellipsis()
+					f.Text(state.hostDisplayName(host)).FontSize(metrics.FontSizeM).Weight(gfx.WeightSemibold).Color(pal.text).LineHeight(22).Ellipsis()
+					f.Text(state.hostSubtitleText(host)).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(19).Ellipsis()
 				})
 			})
 			f.Row().Width(tagsStart - addressStart).Shrink(0).Children(func() {
 				if addressWidth < 60 { // a sliver of an address says less than nothing
 					return
 				}
-				f.Text(host.target).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.text).LineHeight(22).Width(addressWidth).Shrink(0).Ellipsis()
+				f.Text(state.hostAddressText(host)).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.text).LineHeight(22).Width(addressWidth).Shrink(0).Ellipsis()
 			})
 			if tagCount > 0 {
 				f.Row().Width(tagsRoom).Shrink(0).Gap(5).Items(ui.Center).Children(func() {
 					for _, tag := range tagList[:tagCount] {
 						f.Row().Height(24).PadX(7).Items(ui.Center).Radius(12).Background(pal.surface).Children(func() {
-							f.Text(tag).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.muted)
+							f.Text(state.hostTagText(tag)).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.muted)
 						})
 					}
 				})

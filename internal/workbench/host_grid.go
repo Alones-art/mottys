@@ -303,7 +303,7 @@ func (state *State) paintHostCard(canvas *gfx.Canvas, card gfx.Rect, host Host) 
 	canvas.RoundedBorder(card, radius.surface, edgeWidth, edge, background)
 	paintHostColorMark(canvas, card, host.Color)
 	if !state.hostSort.enabled {
-		canvas.HitWithOptions(id, card, host.Label, gfx.HitOptions{Role: gfx.RoleButton, Selected: selected})
+		canvas.HitWithOptions(id, card, state.hostDisplayName(host), gfx.HitOptions{Role: gfx.RoleButton, Selected: selected})
 		state.hostRowEvents(canvas, id, host)
 	}
 	if canvas.FocusVisible() == id {
@@ -317,7 +317,7 @@ func (state *State) paintHostCard(canvas *gfx.Canvas, card gfx.Rect, host Host) 
 	// Keep the account and the destination on one line, each named once, then
 	// show as many whole tag pills as fit before the checkbox's full interaction
 	// region.
-	subtitle := state.hostCardConnection(host)
+	subtitle := state.hostConnectionText(host)
 	checkWidth, checkHeight := components.CheckboxHitExtent(state.Theme())
 	textWidth := max(card.Width-14-12-36-12*2-checkWidth, 0)
 	tagCount := 0
@@ -336,14 +336,14 @@ func (state *State) paintHostCard(canvas *gfx.Canvas, card gfx.Rect, host Host) 
 			}
 		})
 		f.Column().Grow(1).Basis(0).Children(func() {
-			f.Text(host.Label).FontSize(metrics.FontSizeM).Weight(gfx.WeightSemibold).Color(pal.text).LineHeight(22).Ellipsis()
+			f.Text(state.hostDisplayName(host)).FontSize(metrics.FontSizeM).Weight(gfx.WeightSemibold).Color(pal.text).LineHeight(22).Ellipsis()
 			f.Row().Gap(8).Items(ui.Center).MarginSides(1, 0, 0, 0).Children(func() {
 				f.Text(subtitle).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(19).Width(subtitleWidth).Shrink(0).Ellipsis()
 				if tagCount > 0 {
 					f.Row().Gap(5).Shrink(0).Items(ui.Center).Children(func() {
 						for _, tag := range tagList[:tagCount] {
 							f.Row().Height(18).PadX(7).Shrink(0).Items(ui.Center).Radius(9).Background(pal.surfaceSoft).Children(func() {
-								f.Text(tag).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.muted).Width(canvas.TextWidthWeight(tag, metrics.FontSizeS, gfx.WeightMedium) + 1).Shrink(0)
+								f.Text(state.hostTagText(tag)).FontSize(metrics.FontSizeS).Weight(gfx.WeightMedium).Color(pal.muted).Width(canvas.TextWidthWeight(tag, metrics.FontSizeS, gfx.WeightMedium) + 1).Shrink(0)
 							})
 						}
 					})

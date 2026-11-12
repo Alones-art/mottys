@@ -87,14 +87,16 @@ type connectPickerCandidate struct {
 // ordering together. Each mode decides how to filter, sort and head its rows.
 func (state *State) eachConnectPickerCandidate(add func(connectPickerCandidate)) {
 	local := localHost(state.messages.LocalTerminalTitle)
-	add(connectPickerCandidate{label: state.messages.LocalTerminal, detail: local.Address, target: hitConnectPickLocal, key: "local-terminal"})
-	if choices := state.localShellMenu.choices; localShellSettingVisible() && len(choices) > 1 {
+	if !state.hideLocalShells {
+		add(connectPickerCandidate{label: state.messages.LocalTerminal, detail: local.Address, target: hitConnectPickLocal, key: "local-terminal"})
+	}
+	if choices := state.localShellMenu.choices; !state.hideLocalShells && localShellSettingVisible() && len(choices) > 1 {
 		for index, choice := range choices {
 			add(connectPickerCandidate{label: state.messages.LocalTerminal + " · " + choice.Name, detail: local.Address, target: hitConnectPickShells.At(index), key: "local-terminal", searchOnly: true})
 		}
 	}
 	addHost := func(host Host, group *hostGroup) {
-		add(connectPickerCandidate{label: host.Label, detail: state.sessionAddress(host), target: hitConnectPickList.At(int(host.ID)), group: group, key: host.CatalogID})
+		add(connectPickerCandidate{label: state.hostDisplayName(host), detail: state.hostAddressForPicker(host), target: hitConnectPickList.At(int(host.ID)), group: group, key: host.CatalogID})
 	}
 	if state.namedHostGroups() == 0 {
 		for _, host := range state.hosts {

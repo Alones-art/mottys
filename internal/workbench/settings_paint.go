@@ -303,6 +303,8 @@ func (state *State) paintGeneralSettings(page *settingsPage) {
 			}
 			page.row(messages.SettingsTabOrientation, messages.SettingsTabOrientationDescription, tabs[:], selectedTabs)
 			page.toggleRow(messages.SettingsTabNumbers, messages.SettingsTabNumbersDescription, state.tabNumbers, hitSettingsTabNumbers)
+			page.toggleRow(messages.SettingsHideLocalShells, messages.SettingsHideLocalShellsDescription, state.hideLocalShells, hitSettingsHideLocalShells)
+			page.toggleRow(messages.SettingsPrivacyMode, messages.SettingsPrivacyModeDescription, state.privacyMode, hitSettingsPrivacyMode)
 			if state.tabNumbers {
 				numberKeys := state.tabNumberOptions()
 				page.row(messages.SettingsTabNumberKeys, messages.SettingsTabNumberKeysDescription, numberKeys[:], state.tabNumberModifierID())

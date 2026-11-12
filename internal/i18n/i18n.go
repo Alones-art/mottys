@@ -271,6 +271,10 @@ type Messages struct {
 	SettingsTabsVertical                   string
 	SettingsTabNumbers                     string
 	SettingsTabNumbersDescription          string
+	SettingsHideLocalShells                string
+	SettingsHideLocalShellsDescription     string
+	SettingsPrivacyMode                    string
+	SettingsPrivacyModeDescription         string
 	SettingsTabNumberKeys                  string
 	SettingsTabNumberKeysDescription       string
 	SettingsTabsAutoHide                   string

@@ -56,6 +56,16 @@ These were written for this fork on its own terms, without merging upstream code
 - Hosts get an "Interactive session only" switch: automatic banner, system, shell-integration and LANG probes are skipped for gateways that would drop the connection. The setting is persisted with the host.
 - A single damaged `known_hosts` line (a NUL tail or a truncated record) no longer blocks every connection: unreadable lines are dropped, the original is backed up as `known_hosts.bak` and replaced atomically. Clean files are untouched and key mismatches are still rejected.
 
+### Features implemented here
+
+Also written for this fork on its own terms, without merging upstream code:
+
+- Hide local shells: a setting keeps local terminals and installed shells out of the connect menu. Open local tabs and the settings-page shell picker are unaffected; the choice is persisted.
+- Host privacy mode: a setting masks host names, addresses and tags on cards, in the list and in the connect menu for demos and recordings. It lasts only for this run.
+- Hover tab scrollbar: a thin scrollbar appears only when the tabs overflow and the pointer is over them; its thumb can be dragged without stealing tab clicks.
+
+"Open a local tab in the last folder" and "stack the document comparison in a narrow window" already existed in this 0.3.9 baseline.
+
 <table>
   <tr>
     <td width="50%" valign="top">

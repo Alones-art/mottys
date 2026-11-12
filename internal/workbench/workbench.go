@@ -539,8 +539,13 @@ type State struct {
 	// workspacePaneTabLabels is the tab strip's labels, reused every frame.
 	workspacePaneTabLabels []string
 	tabStrip               tabStrip
+	tabBarHover            bool // pointer is over the crowded tab bar
+	tabBarDrag             bool // the tab scrollbar thumb is being dragged
+	tabBarGrab             float32
 	tabOrientation         tabOrientation
 	tabNumbers             bool // each tab shows the number its shortcut key names
+	hideLocalShells        bool // keep local terminals out of the connect menu
+	privacyMode            bool // mask host names and addresses on screen (for demos)
 	verticalTabs           verticalTabs
 	tabMenu                tabMenu
 	hostMenu               hostMenu
@@ -2249,6 +2254,12 @@ func (state *State) Pointer(event gfx.PointerEvent) (outcome gfx.EventResult) {
 	}
 	defer state.afterEvent(&outcome)
 	if result := state.notesPointer(event); result.Handled {
+		return result
+	}
+	if state.trackWindowBarScrollbar(event) {
+		defer func() { outcome.Repaint = true }()
+	}
+	if result, handled := state.windowBarScrollbarPointer(event); handled {
 		return result
 	}
 	if result := state.toolbarDockPointer(event); result.Handled {
