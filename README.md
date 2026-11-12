@@ -37,13 +37,17 @@ The changes below are relative to upstream; everything else matches it:
   `internal/update/update.go` names
   `https://api.github.com/repos/Alones-art/mottys/releases/latest`, so an update
   notice appears when a release here is newer than the running build.
-- **Update checks ask GitHub only**: the upstream mirror
-  `dl.motty.page/latest.json` is no longer requested, so notices never name
-  upstream releases. `CheckPackage` calls the GitHub feed directly.
-- **Known limit**: a plain GitHub feed can announce an update and open the
-  release page, but cannot install one in place; in-app self-updates need a
-  hosted `latest.json` mirror with a minisign signature, which is not set up
-  yet.
+- **Update checks ask GitHub only, and the release's own assets are the
+  mirror**: `CheckPackage` reads `SHA256SUMS` and `SIGNATURES` from the
+  release itself and answers with a package that installs in place. The
+  download address is derived from the feed address
+  (`github.com/<owner>/<repo>/releases/download/…`), never taken from the
+  answer.
+- **In-app self-updates are closed loop**: the setup installer, a portable
+  zip copy (the `motty.exe` beside its `motty-data`, user data untouched),
+  the macOS bundle and the Linux prefix/DEB all update in place; the
+  release's minisign signature (key compiled into the program) is the final
+  check before anything is installed.
 - **Windows builds match the upstream release flags**:
   `-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`, with the portable zip
   packed by `tools/portablezip` into `motty-build/`.

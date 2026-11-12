@@ -4,6 +4,7 @@
 package update
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -76,48 +77,192 @@ const (
 	maxSignatureBytes = 4096
 )
 
-// Latest reads the feed. The client decides timeouts and proxies; nil uses one
-// with a 15 second timeout and the environment's proxy.
-func Latest(ctx context.Context, client *http.Client, feed string) (Release, error) {
+// fetchRelease reads the feed's newest release with the files it carries. The
+// client decides timeouts and proxies; nil uses one with a 15 second timeout
+// and the environment's proxy.
+func fetchRelease(ctx context.Context, client *http.Client, feed string) (Release, []releaseAsset, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second}
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, feed, nil)
 	if err != nil {
-		return Release{}, err
+		return Release{}, nil, err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("User-Agent", "motty/"+Current)
 	response, err := client.Do(request)
 	if err != nil {
-		return Release{}, err
+		return Release{}, nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusNotFound {
-		return Release{}, ErrNoRelease
+		return Release{}, nil, ErrNoRelease
 	}
 	if response.StatusCode != http.StatusOK {
-		return Release{}, fmt.Errorf("update: the release feed answered %s", response.Status)
+		return Release{}, nil, fmt.Errorf("update: the release feed answered %s", response.Status)
 	}
 	var body struct {
-		Tag        string `json:"tag_name"`
-		URL        string `json:"html_url"`
-		Notes      string `json:"body"`
-		Draft      bool   `json:"draft"`
-		Prerelease bool   `json:"prerelease"`
+		Tag        string         `json:"tag_name"`
+		URL        string         `json:"html_url"`
+		Notes      string         `json:"body"`
+		Draft      bool           `json:"draft"`
+		Prerelease bool           `json:"prerelease"`
+		Assets     []releaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, maxFeedBytes)).Decode(&body); err != nil {
-		return Release{}, fmt.Errorf("update: reading the release feed: %w", err)
+		return Release{}, nil, fmt.Errorf("update: reading the release feed: %w", err)
 	}
 	version := strings.TrimPrefix(strings.TrimSpace(body.Tag), "v")
 	if _, ok := parse(version); !ok || body.Draft || body.Prerelease {
-		return Release{}, errors.New("update: the release feed has no usable version")
+		return Release{}, nil, errors.New("update: the release feed has no usable version")
 	}
 	// The page is opened in the user's browser; only a web address is trusted.
 	if !strings.HasPrefix(body.URL, "https://") {
-		return Release{}, errors.New("update: the release page is not an https address")
+		return Release{}, nil, errors.New("update: the release page is not an https address")
 	}
-	return Release{Version: version, URL: body.URL, Notes: cutUTF8(body.Notes, maxNotesBytes)}, nil
+	return Release{Version: version, URL: body.URL, Notes: cutUTF8(body.Notes, maxNotesBytes)}, body.Assets, nil
+}
+
+// releaseAsset is one file the release carries, as the GitHub feed describes it.
+type releaseAsset struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	URL  string `json:"browser_download_url"`
+}
+
+// The two manifests a release needs before a package can install in place:
+// SHA256SUMS holds one "<sha256>  <name>" line per file, SIGNATURES one
+// "<name>\t<signature>" line per package.
+const (
+	checksumsName   = "SHA256SUMS"
+	signaturesName  = "SIGNATURES"
+	githubAssetHost = "github.com"
+)
+
+// Latest reads the feed. The client decides timeouts and proxies; nil uses one
+// with a 15 second timeout and the environment's proxy.
+func Latest(ctx context.Context, client *http.Client, feed string) (Release, error) {
+	release, _, err := fetchRelease(ctx, client, feed)
+	return release, err
+}
+
+// latestGitHubPackage turns the release's own assets into what the mirror would
+// answer: the package for the asking platform, its checksum and its signature,
+// all read from the release the feed names. The package's download address is
+// built from the feed itself, never taken from the answer, so the response
+// cannot send a download to another host. A release without the manifests still
+// announces, it just cannot install in place.
+func latestGitHubPackage(ctx context.Context, client *http.Client, feed, goos, goarch string, pkg Package) (Release, error) {
+	release, assets, err := fetchRelease(ctx, client, feed)
+	if err != nil {
+		return Release{}, err
+	}
+	stable := StableNamePackage(goos, goarch, pkg)
+	var packageAsset, checksums, signatures *releaseAsset
+	for index := range assets {
+		switch assets[index].Name {
+		case stable:
+			packageAsset = &assets[index]
+		case checksumsName:
+			checksums = &assets[index]
+		case signaturesName:
+			signatures = &assets[index]
+		}
+	}
+	if packageAsset == nil || checksums == nil || signatures == nil {
+		return release, nil
+	}
+	if packageAsset.Size <= 0 || packageAsset.Size > maxAssetBytes {
+		return release, nil
+	}
+	checksum, err := manifestEntry(ctx, client, checksums.URL, stable, checksumsName)
+	if err != nil {
+		return Release{}, err
+	}
+	signature, err := manifestEntry(ctx, client, signatures.URL, stable, signaturesName)
+	if err != nil {
+		return Release{}, err
+	}
+	address, err := pinGitHubAsset(feed, release.Version, stable)
+	if err != nil {
+		return Release{}, err
+	}
+	return Release{
+		Version: release.Version, URL: release.URL, Notes: release.Notes,
+		PlatformPackageChecked: true,
+		Asset: Asset{
+			Name: stable, URL: address, SHA256: checksum, Size: packageAsset.Size, Signature: signature,
+		},
+	}, nil
+}
+
+// pinGitHubAsset builds the download address of a release asset from the feed
+// and the release tag. The feed's path is repos/<owner>/<repo>/releases/latest,
+// so the answer names a file on the same repository's release, however the
+// response described it.
+func pinGitHubAsset(feed, version, name string) (string, error) {
+	base, err := url.Parse(feed)
+	if err != nil || base.Scheme != "https" || base.Host == "" {
+		return "", errors.New("update: the release feed is not an https address")
+	}
+	parts := strings.Split(strings.Trim(base.Path, "/"), "/")
+	if len(parts) < 3 || parts[0] != "repos" || parts[1] == "" || parts[2] == "" {
+		return "", errors.New("update: the release feed is not a GitHub repository feed")
+	}
+	pinned := url.URL{
+		Scheme: "https", Host: githubAssetHost,
+		Path: "/" + parts[1] + "/" + parts[2] + "/releases/download/v" + version + "/" + name,
+	}
+	return pinned.String(), nil
+}
+
+// manifestEntry downloads one manifest of the release and returns the entry for
+// name: its checksum from SHA256SUMS, or its signature from SIGNATURES. Only an
+// https address is read, and the answer is bounded like the feed itself.
+func manifestEntry(ctx context.Context, client *http.Client, address, name, file string) (string, error) {
+	base, err := url.Parse(address)
+	if err != nil || base.Scheme != "https" || base.Host == "" {
+		return "", errors.New("update: the release manifest is not an https address")
+	}
+	if client == nil {
+		client = &http.Client{Timeout: 15 * time.Second}
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("User-Agent", "motty/"+Current)
+	response, err := client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("update: %s answered %s", file, response.Status)
+	}
+	scanner := bufio.NewScanner(io.LimitReader(response.Body, maxFeedBytes))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024)
+	for scanner.Scan() {
+		line := scanner.Text()
+		switch file {
+		case checksumsName:
+			fields := strings.Fields(line)
+			if len(fields) == 2 && fields[1] == name {
+				if !sha256Pattern.MatchString(fields[0]) {
+					return "", errors.New("update: SHA256SUMS holds a malformed checksum")
+				}
+				return fields[0], nil
+			}
+		case signaturesName:
+			if entry, signature, ok := strings.Cut(line, "\t"); ok && entry == name {
+				return signature, nil
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("update: reading %s: %w", file, err)
+	}
+	return "", fmt.Errorf("update: %s does not carry %s", file, name)
 }
 
 // cutUTF8 keeps at most limit bytes of text, never splitting a character.
@@ -131,9 +276,9 @@ func cutUTF8(text string, limit int) string {
 	return text[:limit]
 }
 
-// Check asks the mirror for the newest release and, when the mirror cannot
-// answer, GitHub. The package is chosen for goos and goarch; a GitHub answer has
-// none, because it carries no checksums to hold a download to.
+// Check asks the feed for the newest release with the package of the asking
+// platform: the feed's own assets are the mirror, so the answer can install in
+// place when the release carries its checksums and signatures.
 func Check(ctx context.Context, client *http.Client, goos, goarch string) (Release, error) {
 	return CheckPackage(ctx, client, goos, goarch, PackageArchive)
 }
@@ -144,14 +289,17 @@ type Package uint8
 const (
 	PackageArchive Package = iota
 	PackageDeb
+	// PackageWindowsZip is the portable zip a portable copy updates with: the
+	// program is replaced in place instead of running an installer.
+	PackageWindowsZip
 )
 
 // CheckPackage selects the package matching the installation on this machine.
-// This fork has no mirror of its own yet, so it asks GitHub directly: a GitHub
-// answer names the release but carries no checksums, so it can announce an
-// update but not install one in place.
+// The feed is GitHub and the release's own assets are the mirror: the package,
+// its checksum and its signature all come from the release, so the answer can
+// install in place.
 func CheckPackage(ctx context.Context, client *http.Client, goos, goarch string, pkg Package) (Release, error) {
-	return Latest(ctx, client, Feed)
+	return latestGitHubPackage(ctx, client, Feed, goos, goarch, pkg)
 }
 
 func checkFeeds(ctx context.Context, client *http.Client, mirrorFeed, githubFeed, goos, goarch string) (Release, error) {
@@ -189,6 +337,12 @@ func StableNamePackage(goos, goarch string, pkg Package) string {
 	if pkg == PackageDeb {
 		if goos == "linux" && (goarch == "arm64" || goarch == "amd64") {
 			return "motty_" + goarch + ".deb"
+		}
+		return ""
+	}
+	if pkg == PackageWindowsZip {
+		if goos == "windows" && (goarch == "arm64" || goarch == "amd64") {
+			return "motty-windows-" + goarch + ".zip"
 		}
 		return ""
 	}

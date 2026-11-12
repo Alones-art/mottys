@@ -165,6 +165,17 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 			}
 		}
 		staged.Path = archive
+	case KindWindowsPortable:
+		// The release signature over the zip is the whole check: a portable
+		// program is unsigned, so there is no certificate to compare against.
+		unpacked := filepath.Join(dir, "unpacked")
+		if err := ExtractZip(archive, unpacked); err != nil {
+			return Staged{}, err
+		}
+		if info, err := os.Stat(filepath.Join(unpacked, "motty.exe")); err != nil || !info.Mode().IsRegular() {
+			return Staged{}, errors.New("selfupdate: the package does not hold motty.exe")
+		}
+		staged.Path = unpacked
 	case KindLinuxPrefix:
 		unpacked := filepath.Join(dir, "unpacked")
 		if err := ExtractTarGz(archive, unpacked); err != nil {

@@ -101,6 +101,8 @@ func (job Job) Run() error {
 		err = job.applyMac()
 	case KindWindowsSetup:
 		err = job.applyWindows()
+	case KindWindowsPortable:
+		err = job.applyWindowsPortable()
 	case KindLinuxPrefix:
 		err = job.applyLinux()
 	case KindLinuxDeb:

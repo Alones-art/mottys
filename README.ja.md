@@ -36,11 +36,16 @@ Motty はデスクトップの SSH クライアントです。ターミナル、
   の `Feed` を `https://api.github.com/repos/Alones-art/mottys/releases/latest`
   に向け、本リポジトリの release（実行中のバージョンより新しいタグ）があれば
   更新通知を出します。
-- **更新チェックは GitHub のみ**：上流のミラー `dl.motty.page/latest.json`
-  は呼び出さなくなりました。`CheckPackage` は GitHub の feed を直接使います。
-- **既知の制限**：GitHub の feed だけでは「通知 + release ページを開いて手動
-  ダウンロード」までしかできません。アプリ内での自動更新には `latest.json`
-  ミラーと minisign 署名が必要で、まだ設定していません。
+- **更新チェックは GitHub のみ、release の資産がミラーそのもの**：
+  `CheckPackage` は release 自身の `SHA256SUMS` と `SIGNATURES` を読み、
+  その場でインストールできるパッケージを返します。ダウンロード先は feed の
+  アドレスから導出され（`github.com/<owner>/<repo>/releases/download/…`）、
+  応答が示す別のホストは決して受け入れません。
+- **アプリ内での自動更新が完結しました**：setup インストーラー、ポータブル
+  zip コピー（`motty-data` の隣の `motty.exe`、ユーザーデータは上書きしない）、
+  macOS バンドル、Linux の prefix/DEB がいずれもアプリ内で更新できます。
+  リリースの minisign 署名（鍵はプログラムに埋め込み済み）がインストール前の
+  最終検証です。
 - **Windows ビルドは上流のリリースと同じフラグ**：
   `-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`。ポータブル zip は
   `tools/portablezip` で `motty-build/` に作成します。

@@ -32,10 +32,14 @@ Motty 是一个桌面 SSH 客户端。终端、SFTP 面板、端口转发、远�
 - **更新检查源改为本仓库**：`internal/update/update.go` 中的 `Feed` 指向
   `https://api.github.com/repos/Alones-art/mottys/releases/latest`，新版本提示
   依据本仓库发布的 release（tag 高于本机版本即提示）。
-- **更新检查只走 GitHub**：不再请求上游镜像 `dl.motty.page/latest.json`，
-  避免提示上游仓库的版本。相应地，`CheckPackage` 直接调用 GitHub feed。
-- **已知限制**：纯 GitHub 源只能"提示 + 跳转 release 页面手动下载"；
-  应用内一键自更新需要自建镜像 `latest.json` 与 minisign 签名，尚未配置。
+- **更新检查只走 GitHub，且 release 资产就是镜像**：`CheckPackage` 从 release
+  自己的资产里读取 `SHA256SUMS` 与 `SIGNATURES`，据此给出可原地安装的包；
+  下载地址由 feed 地址推导（`github.com/<owner>/<repo>/releases/download/…`），
+  永不接受响应里给的其他主机。
+- **应用内一键自更新已闭环**：安装器安装（setup.exe）、便携 zip 原地替换
+  （`motty-data` 旁的 `motty.exe`，用户数据不覆盖）、macOS bundle、Linux
+  prefix/DEB 都能在应用内完成更新；release 的 minisign 签名（密钥已编译进
+  程序）是安装前的最终校验。
 - **Windows 构建参数与上游发布一致**：`-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`，
   便携 zip 用 `tools/portablezip` 打包，产物在 `motty-build/`。
 

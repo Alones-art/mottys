@@ -25,6 +25,9 @@ const (
 	KindNone Kind = iota
 	KindMacApp
 	KindWindowsSetup
+	// KindWindowsPortable is a copy unpacked from the release zip beside its
+	// motty-data directory. Nothing installed it; the program replaces itself.
+	KindWindowsPortable
 	KindLinuxPrefix
 	KindLinuxDeb
 )
@@ -35,6 +38,8 @@ func (kind Kind) String() string {
 		return "mac-app"
 	case KindWindowsSetup:
 		return "windows-setup"
+	case KindWindowsPortable:
+		return "windows-portable"
 	case KindLinuxPrefix:
 		return "linux-prefix"
 	case KindLinuxDeb:
@@ -44,7 +49,7 @@ func (kind Kind) String() string {
 }
 
 func parseKind(name string) Kind {
-	for _, kind := range []Kind{KindMacApp, KindWindowsSetup, KindLinuxPrefix, KindLinuxDeb} {
+	for _, kind := range []Kind{KindMacApp, KindWindowsSetup, KindWindowsPortable, KindLinuxPrefix, KindLinuxDeb} {
 		if kind.String() == name {
 			return kind
 		}
@@ -178,7 +183,7 @@ func Detect(exe string, env Env) (Install, Reason) {
 		programs := filepath.Join(env.LocalAppData, "Programs")
 		legacyDefault := env.WindowsUserDir == "" && env.LocalAppData != "" && strings.EqualFold(filepath.Dir(dir), programs)
 		if (!registered && !legacyDefault) || !env.Exists(filepath.Join(dir, "Uninstall.exe")) {
-			return install, ReasonNotUserInstall
+			return detectWindowsPortable(install, dir, exe, env)
 		}
 		if !env.Writable(dir) {
 			return install, ReasonNotWritable
@@ -214,10 +219,28 @@ func Detect(exe string, env Env) (Install, Reason) {
 	return install, ReasonNone
 }
 
+// detectWindowsPortable recognizes a copy unpacked from the release zip: the
+// zip lays the program beside its motty-data directory, and nothing installed
+// it, so there is no uninstall entry to find. The directory has to be writable:
+// the update replaces the program in place.
+func detectWindowsPortable(install Install, dir, exe string, env Env) (Install, Reason) {
+	if !env.Exists(filepath.Join(dir, "motty-data")) || filepath.Base(exe) != "motty.exe" {
+		return install, ReasonNotUserInstall
+	}
+	if !env.Writable(dir) {
+		return install, ReasonNotWritable
+	}
+	install.Kind, install.Root = KindWindowsPortable, dir
+	return install, ReasonNone
+}
+
 // Package describes which release asset belongs to this installation.
 func (install Install) Package() update.Package {
-	if install.Kind == KindLinuxDeb {
+	switch install.Kind {
+	case KindLinuxDeb:
 		return update.PackageDeb
+	case KindWindowsPortable:
+		return update.PackageWindowsZip
 	}
 	return update.PackageArchive
 }

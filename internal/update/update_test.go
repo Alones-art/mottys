@@ -245,3 +245,101 @@ func TestAMirrorThatNamesNoPackageForThisPlatformWasChecked(t *testing.T) {
 		t.Fatalf("release %+v, err %v", release, err)
 	}
 }
+
+// checksumHash is a well-formed SHA-256 the test manifests can carry.
+var checksumHash = strings.Repeat("ab", 32)
+
+// githubFeedServer serves the release feed and the two manifests its assets
+// name, the way a release on GitHub does. The feed body is built once the
+// server's own https address is known, so the manifests can name it; the
+// package's own download address is pinned from the feed, never from the
+// answer, and is never fetched here.
+func githubFeedServer(t *testing.T, sums, signatures string, feed func(base string) string) *httptest.Server {
+	t.Helper()
+	var body string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/Alones-art/mottys/releases/latest":
+			w.Write([]byte(body))
+		case "/SHA256SUMS":
+			w.Write([]byte(sums))
+		case "/SIGNATURES":
+			w.Write([]byte(signatures))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	body = feed(server.URL)
+	return server
+}
+
+// The release's own assets are the mirror: a feed that names the package, its
+// checksum and its signature answers with an asset that can install in place,
+// and the package address is built from the feed, never from the answer.
+func TestGitHubReleaseAssetsAreTheMirror(t *testing.T) {
+	server := githubFeedServer(t,
+		checksumHash+"  motty-windows-amd64.zip\n",
+		"motty-windows-amd64.zip\tsignature-bytes\n",
+		func(base string) string {
+			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
+		  "assets":[{"name":"motty-windows-amd64.zip","size":123456,"browser_download_url":"https://evil.example/steal"},
+		            {"name":"SHA256SUMS","size":10,"browser_download_url":"` + base + `/SHA256SUMS"},
+		            {"name":"SIGNATURES","size":10,"browser_download_url":"` + base + `/SIGNATURES"}]}`
+		},
+	)
+	feed := server.URL + "/repos/Alones-art/mottys/releases/latest"
+	release, err := latestGitHubPackage(context.Background(), server.Client(), feed, "windows", "amd64", PackageWindowsZip)
+	if err != nil {
+		t.Fatalf("checking the feed: %v", err)
+	}
+	if !release.PlatformPackageChecked || release.Asset.Name != "motty-windows-amd64.zip" {
+		t.Fatalf("the package was not checked: %+v", release.Asset)
+	}
+	if release.Asset.URL != "https://github.com/Alones-art/mottys/releases/download/v1.2.3/motty-windows-amd64.zip" {
+		t.Fatalf("the download address must come from the feed, not the answer: %q", release.Asset.URL)
+	}
+	if release.Asset.SHA256 != checksumHash || release.Asset.Signature != "signature-bytes" || release.Asset.Size != 123456 {
+		t.Fatalf("asset = %+v", release.Asset)
+	}
+	if !release.Asset.Signed() || !release.Asset.Has() {
+		t.Fatal("the asset cannot be installed in place")
+	}
+}
+
+// A release without its manifests still announces; it just cannot install.
+func TestGitHubReleaseWithoutManifestsOnlyAnnounces(t *testing.T) {
+	server := githubFeedServer(t,
+		"", "",
+		func(base string) string {
+			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
+		  "assets":[{"name":"motty-windows-amd64.zip","size":123456,"browser_download_url":"https://github.com/x"}]}`
+		},
+	)
+	feed := server.URL + "/repos/Alones-art/mottys/releases/latest"
+	release, err := latestGitHubPackage(context.Background(), server.Client(), feed, "windows", "amd64", PackageWindowsZip)
+	if err != nil {
+		t.Fatalf("checking the feed: %v", err)
+	}
+	if release.PlatformPackageChecked || release.Asset.Has() || release.Version != "1.2.3" {
+		t.Fatalf("a manifest-less release announced an installable package: %+v", release)
+	}
+}
+
+// A checksum the manifest cannot hold is refused, not trusted.
+func TestGitHubFeedRefusesAMalformedChecksum(t *testing.T) {
+	server := githubFeedServer(t,
+		"short  motty-windows-amd64.zip\n",
+		"motty-windows-amd64.zip\tsig\n",
+		func(base string) string {
+			return `{"tag_name":"v1.2.3","html_url":"https://github.com/Alones-art/mottys/releases/tag/v1.2.3",
+		  "assets":[{"name":"motty-windows-amd64.zip","size":1,"browser_download_url":"https://github.com/x"},
+		            {"name":"SHA256SUMS","size":10,"browser_download_url":"` + base + `/SHA256SUMS"},
+		            {"name":"SIGNATURES","size":10,"browser_download_url":"` + base + `/SIGNATURES"}]}`
+		},
+	)
+	feed := server.URL + "/repos/Alones-art/mottys/releases/latest"
+	if _, err := latestGitHubPackage(context.Background(), server.Client(), feed, "windows", "amd64", PackageWindowsZip); err == nil {
+		t.Fatal("a malformed checksum passed the feed")
+	}
+}

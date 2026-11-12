@@ -549,6 +549,9 @@ func TestLocalProxyPanelKeyboardAndHiddenActiveEntry(t *testing.T) {
 	state.Wake()
 	state.sessions[0].term.shell.(*fakeShell).say("ready")
 	state.Wake()
+	// The panel pre-fills the port from the machine's system proxy; this
+	// machine may run one on another port, so pin the lookup to none.
+	state.lookupSystemProxy = nil
 	if state.showsProgress(&state.sessions[0]) {
 		t.Fatal("connected session still shows its progress page")
 	}

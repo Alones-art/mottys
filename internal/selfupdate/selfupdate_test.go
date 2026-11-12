@@ -307,8 +307,11 @@ func TestWindowsInstallsAreRecognisedByTheirInstallerDirectory(t *testing.T) {
 	if install, why := Detect(`C:\Users\me\AppData\Local\Programs\Motty\motty.exe`, env); install.Kind != KindWindowsSetup || why != ReasonNone {
 		t.Errorf("installer directory: %v %v", install.Kind, why)
 	}
-	if _, why := Detect(`C:\Tools\motty.exe`, env); why != ReasonNotUserInstall {
-		t.Errorf("portable: %v", why)
+	// With the fake Exists answering yes to everything, the motty-data marker
+	// is there too: the directory is the portable layout the release zip
+	// unpacks to, and it updates in place.
+	if install, why := Detect(`C:\Tools\motty.exe`, env); install.Kind != KindWindowsPortable || why != ReasonNone {
+		t.Errorf("portable: %v %v", install.Kind, why)
 	}
 	env.ProgramFiles = []string{`C:\Program Files`}
 	if _, why := Detect(`C:\Program Files\Motty\motty.exe`, env); why != ReasonSystemInstall {
@@ -467,5 +470,39 @@ func TestTheMacHelperIsACopyOfTheWholeBundle(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(helper), "..", "Info.plist")); err != nil {
 		t.Fatalf("the helper was taken out of its bundle: %v", err)
+	}
+}
+
+// A portable copy is the release zip's layout: the program beside its
+// motty-data directory, no installer anywhere. It replaces itself in place and
+// updates from the zip asset, not the setup installer.
+func TestPortableCopyIsRecognisedAndTakesTheZipAsset(t *testing.T) {
+	env := Env{GOOS: "windows", Writable: func(string) bool { return true }, Exists: func(path string) bool {
+		return filepath.Base(path) == "motty-data"
+	}}
+	if filepath.Separator != '\\' {
+		t.Skip("Windows paths")
+	}
+	install, why := Detect(`D:\apps\motty\motty.exe`, env)
+	if why != ReasonNone || install.Kind != KindWindowsPortable || install.Root != `D:\apps\motty` {
+		t.Fatalf("portable copy: %v %v root=%q", install.Kind, why, install.Root)
+	}
+	if install.Package() != update.PackageWindowsZip {
+		t.Fatalf("portable package = %v, want the zip", install.Package())
+	}
+	// Without the data marker nothing says this is a portable copy.
+	env.Exists = func(string) bool { return false }
+	if _, why := Detect(`D:\apps\motty\motty.exe`, env); why != ReasonNotUserInstall {
+		t.Fatalf("without the marker: %v", why)
+	}
+	// A renamed program cannot be told apart from a stray copy.
+	env.Exists = func(path string) bool { return filepath.Base(path) == "motty-data" }
+	if _, why := Detect(`D:\apps\motty\renamed.exe`, env); why != ReasonNotUserInstall {
+		t.Fatalf("renamed program: %v", why)
+	}
+	// A directory the program cannot write to is left alone.
+	env.Writable = func(string) bool { return false }
+	if _, why := Detect(`D:\apps\motty\motty.exe`, env); why != ReasonNotWritable {
+		t.Fatalf("read-only portable copy: %v", why)
 	}
 }
