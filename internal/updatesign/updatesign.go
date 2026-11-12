@@ -21,8 +21,8 @@ import (
 // releaseKeyText is the public half of the release signing key. The private
 // half lives in the release workflow (MOTTY_UPDATE_SIGNING_KEY) and in the
 // owner's offline backup, never in this repository.
-const releaseKeyText = `untrusted comment: minisign public key: C4B1B4A98B79DE2D
-RWQt3nmLqbSxxNUcSrHSz1RYgkrnE2U6eioEHTy355AsjTQhIypdhNkj`
+const releaseKeyText = `untrusted comment: minisign public key: 6A19671F847210CA
+RWTKEHKEH2cZauPajPkSiqvezOxRhaOVUMa5/qq6DTYDq9nq2oxujWiP`
 
 // ErrUnsigned means the release names no signature for the package.
 var ErrUnsigned = errors.New("updatesign: the release has no signature")
