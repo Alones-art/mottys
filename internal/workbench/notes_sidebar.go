@@ -14,6 +14,7 @@ var (
 	hitNoteSideWidth   = tree.ID(notesHits, "side-width")
 	hitNoteSideSplit   = tree.ID(notesHits, "side-split")
 	hitNoteSideOpen    = tree.ID(notesHits, "side-open")
+	hitNoteSideClose   = tree.ID(notesHits, "side-close")
 	hitNoteSideLinked  = tree.ID(notesHits, "side-linked")
 	hitNoteSideExpand  = tree.ID(notesHits, "side-expand-all")
 	hitNoteSideRowOpen = tree.Sub(notesHits, tree.Name("side-row-open"))
@@ -26,6 +27,8 @@ type noteSidebar struct {
 	lastQuery                    string
 	bounds, resizeBounds         gfx.Rect
 	widthDragging, splitDragging bool
+	tabID                        uint32
+	expandedByTab                map[uint32]map[string]bool
 }
 
 func (s *State) noteSidebarVisible() bool {
@@ -36,7 +39,24 @@ func (s *State) noteSidebarState() *noteSidebar {
 		s.notes.sidebar = &noteSidebar{width: 400, fraction: .5, content: notesUI{noteDraft: &noteDraft{}}}
 		s.notes.sidebar.content.view.expanded = map[string]bool{}
 	}
-	return s.notes.sidebar
+	v := s.notes.sidebar
+	// The folder tree remembers which folders are open per tab: switching tabs
+	// swaps in the expansion state of the tab that is now active.
+	if v.tabID != s.activeSessionID {
+		if v.tabID != 0 {
+			if v.expandedByTab == nil {
+				v.expandedByTab = map[uint32]map[string]bool{}
+			}
+			v.expandedByTab[v.tabID] = v.content.view.expanded
+		}
+		if saved, ok := v.expandedByTab[s.activeSessionID]; ok {
+			v.content.view.expanded = saved
+		} else {
+			v.content.view.expanded = map[string]bool{}
+		}
+		v.tabID = s.activeSessionID
+	}
+	return v
 }
 func (s *State) notePreviewState() *notesUI {
 	if s.noteTarget != nil {
@@ -120,6 +140,7 @@ func (s *State) paintNoteSidebar(c *gfx.Canvas, b gfx.Rect) {
 	v.bounds = b
 	v.resizeBounds = gfx.Rect{X: s.workspacePixelBounds(s.viewport).X, Y: b.Y, Width: s.workspacePixelBounds(s.viewport).Width + b.Width, Height: b.Height}
 	c.Fill(b, s.pal.workspace)
+	components.BeginButton(c, s.Theme(), hitNoteSideClose, gfx.Rect{X: b.X + b.Width - 30, Y: b.Y + 2, Width: 28, Height: 28}).Height(28).WithIcon(icons.X).Icon().Ghost(s.noteText("Close notes panel", "关闭笔记侧栏"))
 	if n.selected == "" {
 		s.paintNoteSidebarTree(c, b.Inset(gfx.Insets{Left: 1, Right: 1, Top: 1, Bottom: 1}))
 		n.previewBounds = gfx.Rect{}
@@ -127,7 +148,7 @@ func (s *State) paintNoteSidebar(c *gfx.Canvas, b gfx.Rect) {
 	} else {
 		split := s.noteSideSplitResizable(c).Paint(s.noteText("Resize note browser sections", "调整笔记上下区域"))
 		s.paintNoteSidebarTree(c, split.First)
-		body := split.Second.Inset(gfx.Insets{Left: 8, Right: 8, Top: 6, Bottom: 8})
+		body := split.Second.Inset(gfx.Insets{Left: 8, Right: 36, Top: 6, Bottom: 8})
 		title := n.draft.Title
 		if strings.TrimSpace(title) == "" {
 			title = s.noteText("Untitled", "无标题")
@@ -166,7 +187,7 @@ func (s *State) paintNoteSidebarTree(c *gfx.Canvas, b gfx.Rect) {
 	v := s.noteSidebarState()
 	n := &v.content
 	theme := s.Theme()
-	top := b.Inset(gfx.Insets{Left: 8, Right: 8, Top: 8})
+	top := b.Inset(gfx.Insets{Left: 8, Right: 36, Top: 8})
 	label := s.noteText("Linked only", "只看关联")
 	labelWidth := c.TextWidth(label, 12)
 	switchW := labelWidth + 6 + aiSwitchWidth
@@ -316,6 +337,14 @@ func (s *State) paintNoteSidebarTree(c *gfx.Canvas, b gfx.Rect) {
 	n.view.listArea.EndContent()
 }
 func (s *State) clickNoteSidebar(id gfx.ID) bool {
+	if id == hitNoteSideClose {
+		s.notes.panel = false
+		if s.notes.sidebar != nil {
+			s.notes.sidebar.stopCapture()
+		}
+		s.fitTerminals()
+		return true
+	}
 	n := &s.noteSidebarState().content
 	if id == hitNoteSideExpand {
 		if n.query.String() == "" {

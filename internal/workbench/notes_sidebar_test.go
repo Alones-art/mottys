@@ -207,3 +207,33 @@ func TestNotesSidebarImageResultCannotOverwriteAnotherPreview(t *testing.T) {
 		t.Fatal("sidebar image result leaked to editor")
 	}
 }
+
+// Switching tabs swaps in the expansion state of the tab that is now active:
+// each tab remembers which folders it had open.
+func TestNoteSidebarRemembersExpansionPerTab(t *testing.T) {
+	s := newTestState(t, freshOptions(t))
+	s.sessions = []Session{{ID: 1, Address: "one"}, {ID: 2, Address: "two"}}
+	s.activeSessionID = 1
+	s.notes.folders = []savedNoteFolder{{ID: "parent"}}
+	n := &s.noteSidebarState().content
+	n.view.expanded["parent"] = true
+	s.activeSessionID = 2
+	if s.noteSidebarState().content.view.expanded["parent"] {
+		t.Fatal("tab two must start with its own collapsed tree")
+	}
+	s.noteSidebarState().content.view.expanded["parent"] = true
+	s.activeSessionID = 1
+	if !s.noteSidebarState().content.view.expanded["parent"] {
+		t.Fatal("switching back must restore tab one's expansion")
+	}
+}
+
+// The close button in the sidebar header hides the panel outright.
+func TestNoteSidebarCloseButtonHidesThePanel(t *testing.T) {
+	s := newTestState(t, freshOptions(t))
+	s.notes.panel = true
+	s.clickNoteSidebar(hitNoteSideClose)
+	if s.notes.panel {
+		t.Fatal("the close button must hide the notes panel")
+	}
+}

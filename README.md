@@ -68,6 +68,8 @@ Also written for this fork on its own terms, without merging upstream code:
 - Hide local shells: a setting keeps local terminals and installed shells out of the connect menu. Open local tabs and the settings-page shell picker are unaffected; the choice is persisted.
 - Host privacy mode: a setting masks host names, addresses and tags on cards, in the list and in the connect menu for demos and recordings. It lasts only for this run.
 - Hover tab scrollbar: a thin scrollbar appears only when the tabs overflow and the pointer is over them; its thumb can be dragged without stealing tab clicks.
+- Notes sidebar close button: an X at the sidebar's top-right corner collapses the panel outright.
+- Per-tab sidebar expansion: each tab remembers which note folders it had open; switching tabs restores that tab's own tree.
 
 "Open a local tab in the last folder" and "stack the document comparison in a narrow window" already existed in this 0.3.9 baseline.
 
