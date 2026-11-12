@@ -83,6 +83,10 @@ Also written for this fork on its own terms, without merging upstream code:
 - The host list's scrollbar appears on hover and can be dragged.
 - The snippets page's table scrolls: however long the list grows, everything stays reachable.
 - Output arriving no longer takes the terminal selection away, and a rewritten line refreshes its gutter time.
+- Hosts and groups sort by the interface language: a Chinese interface orders names by their reading, not by code point.
+- A failed sync shows its reason whole instead of ending in an ellipsis.
+- The transfer center reserves the scrollbar's own strip, so it no longer rides on the cards and clips them.
+- Link-local IPv6 addresses connect again: a Windows adapter name with brackets no longer breaks the handshake.
 
 "Open a local tab in the last folder" and "stack the document comparison in a narrow window" already existed in this 0.3.9 baseline.
 

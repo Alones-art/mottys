@@ -1,6 +1,8 @@
 package workbench
 
 import (
+	"golang.org/x/text/collate"
+
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -337,9 +339,9 @@ func (state *State) refreshHostGroups() {
 	}
 	sort.Slice(state.hostGroups, func(left, right int) bool {
 		if state.hostOrder != hostOrderManual {
-			return hostGroupLess(state.hostGroups[left].Name, state.hostGroups[right].Name)
+			return hostGroupLess(state.nameCollator(), state.hostGroups[left].Name, state.hostGroups[right].Name)
 		}
-		return orderedHostGroupLess(state.hostGroups[left].Name, state.hostGroups[right].Name, byName)
+		return orderedHostGroupLess(state.nameCollator(), state.hostGroups[left].Name, state.hostGroups[right].Name, byName)
 	})
 	for index := range state.hostGroups {
 		group := &state.hostGroups[index]
@@ -389,10 +391,15 @@ func hostGroupWithin(path, parent string) bool {
 }
 
 // Compare one segment at a time so punctuation in a sibling cannot split a subtree.
-func hostGroupLess(left, right string) bool {
+func hostGroupLess(names *collate.Collator, left, right string) bool {
 	for {
 		l, lrest, lmore := strings.Cut(left, "/")
 		r, rrest, rmore := strings.Cut(right, "/")
+		if names != nil {
+			if order := names.CompareString(l, r); order != 0 {
+				return order < 0
+			}
+		}
 		if order := strings.Compare(strings.ToLower(l), strings.ToLower(r)); order != 0 {
 			return order < 0
 		}

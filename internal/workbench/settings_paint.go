@@ -1,6 +1,7 @@
 package workbench
 
 import (
+	"math"
 	"time"
 
 	"github.com/vivaui/viva/components"
@@ -649,6 +650,40 @@ func (page *settingsPage) actionRow(label, description string, disabled bool, ac
 		controlWidth = page.controlWidth
 	}
 	page.buttons(page.line(label, description, controlWidth), disabled, actions...)
+}
+
+// actionRowWhole is actionRow whose description is shown whole: the row grows
+// a strip of line height for every line the reason wraps to beyond the usual
+// two, so a failure is never ellipsized away. The buttons ride the row's first
+// line, where they always were.
+func (page *settingsPage) actionRowWhole(label, description string, disabled bool, actions ...components.ButtonAction) {
+	theme := page.state.Theme()
+	canvas := page.f.Canvas()
+	controlWidth := theme.Metrics.GapItem * float32(len(actions)-1)
+	for _, action := range actions {
+		controlWidth += components.BeginButton(canvas, theme, gfx.ID{}, gfx.Rect{}).Small().SizeToFit(action.Label).BoundsWidth()
+	}
+	controlWidth = min(controlWidth, page.width*0.6)
+	// The words get what the buttons do not take, the split lineFor makes; the
+	// description wraps at that width and the row grows with it. Measuring
+	// gives a line more than the raw quotient: wrapping never packs tighter
+	// than the quotient assumes, and a slightly tall row beats a cut reason.
+	wordsWidth := max(page.width-36-24-controlWidth-8, 120)
+	lines := 2
+	if textWidth := canvas.TextWidth(description, metrics.FontSizeS); textWidth > 0 {
+		lines = max(2, int(math.Ceil(float64(textWidth)/float64(wordsWidth)))+1)
+	}
+	height := page.rowHeight + float32(max(lines-2, 0))*15
+	row := page.rowOf(height)
+	page.matchAnchor(label, row, 0)
+	row.PadX(18).Gap(24).Children(func() {
+		words := page.f.Column().Grow(1).Children(func() {
+			page.f.Text(label).FontSize(metrics.FontSizeM).Weight(gfx.WeightMedium).Color(page.state.pal.text).LineHeight(21)
+			page.f.Paragraph(description, lines).FontSize(metrics.FontSizeS).Color(page.state.pal.muted).LineHeight(15).MarginSides(1, 0, 0, 0)
+		})
+		page.labels(gfx.ID{}, words, label, false)
+		page.buttons(page.f.Row().Size(controlWidth, 34).Shrink(0).Justify(ui.End).Items(ui.Center), disabled, actions...)
+	})
 }
 
 // valueActionRow is actionRow for a setting whose current value the row names

@@ -102,8 +102,11 @@ func (state *State) paintTransferCenter(canvas *gfx.Canvas) {
 	f.End()
 	paintTransferProgress(canvas, summaryBar.Rect(), center.fraction, pal.accent, pal.line)
 	center.list = list.Rect()
+	// The strip for the scrollbar is reserved: without it the bar rode on the
+	// cards' right edge, clipping whatever ran under it once transfers
+	// outnumbered the visible rows.
 	area := components.BeginScrollArea(canvas, state.Theme(), center.list, gfx.Size{Height: float32(center.count) * transferCardHeight}).
-		Offset(0, center.scroll).Viewport(hitTransfersList, m.Title).VerticalScrollbar(hitTransfersBar, m.Title, "")
+		Offset(0, center.scroll).ReserveScrollbars().Viewport(hitTransfersList, m.Title).VerticalScrollbar(hitTransfersBar, m.Title, "")
 	geometry := area.BeginContent()
 	center.scroll, center.geometry = geometry.OffsetY, geometry
 	if center.count == 0 {

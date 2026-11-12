@@ -95,7 +95,7 @@ func (s *State) layoutNoteHostPicker(width float32, query string) ([]noteHostPic
 		if a == b {
 			return 0
 		}
-		if orderedHostGroupLess(a, b, groups) {
+		if orderedHostGroupLess(s.nameCollator(), a, b, groups) {
 			return -1
 		}
 		return 1

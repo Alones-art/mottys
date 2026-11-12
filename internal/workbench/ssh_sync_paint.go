@@ -16,7 +16,9 @@ func (state *State) paintSSHSyncSettings(page *settingsPage) {
 		page.actionRow(m.FileRow, owner.sshConfigPathText(), !on,
 			components.ButtonAction{ID: hitSettingsSSHSyncFile, Label: m.FileChoose, Variant: components.ButtonOutline},
 			components.ButtonAction{ID: hitSettingsSSHSyncReset, Label: m.FileReset, Variant: components.ButtonGhost})
-		page.actionRow(m.NowRow, owner.sshSyncDescription(), !on,
+		// The reason of a failed sync is shown whole: the row grows to it
+		// instead of ending in an ellipsis.
+		page.actionRowWhole(m.NowRow, owner.sshSyncDescription(), !on,
 			components.ButtonAction{ID: hitSettingsSSHSyncNow, Label: m.NowButton, Variant: components.ButtonOutline})
 	})
 }

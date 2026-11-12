@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"motty/internal/i18n"
+
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/gfx"
 )
@@ -174,5 +176,36 @@ func TestHostDisplayOrderMenuIndicatesCurrentChoice(t *testing.T) {
 			}
 		}
 		state.Click(hitHostOrderDismiss)
+	}
+}
+
+// Names sort the way the interface language reads them: a Chinese interface
+// orders hanzi by reading, an English one keeps the order it always had.
+func TestHostsSortByTheInterfaceLanguage(t *testing.T) {
+	s := newTestState(t, testOptions(t))
+	s.language = i18n.Chinese
+	s.hosts = []Host{{ID: 1, Label: "腾讯云"}, {ID: 2, Label: "阿里云"}}
+	s.hostOrder = hostOrderName
+	s.visible = []int{0, 1}
+	s.sortVisibleHosts()
+	if s.hosts[s.visible[0]].Label != "阿里云" {
+		t.Fatalf("chinese order = %q first, want the reading order", s.hosts[s.visible[0]].Label)
+	}
+	s.language = i18n.English
+	s.sortVisibleHosts()
+	if s.hosts[s.visible[0]].Label != "腾讯云" {
+		t.Fatalf("english order = %q first, want the code point order", s.hosts[s.visible[0]].Label)
+	}
+}
+
+// Groups sort with the same collation the hosts use.
+func TestGroupsSortByTheInterfaceLanguage(t *testing.T) {
+	s := newTestState(t, testOptions(t))
+	s.language = i18n.Chinese
+	if hostGroupLess(s.nameCollator(), "腾讯云", "阿里云") {
+		t.Fatal("chinese collation ordered the groups by code point")
+	}
+	if !hostGroupLess(s.nameCollator(), "阿里云", "腾讯云") {
+		t.Fatal("chinese collation did not order the groups by reading")
 	}
 }

@@ -107,10 +107,30 @@ func algorithmsFor(keyType string) []string {
 	return []string{keyType}
 }
 
+// parseableRemote returns remote in a form the knownhosts check can parse. The
+// check runs net.SplitHostPort over the address before anything else, and
+// Windows names an IPv6 link-local zone after the network adapter, whose
+// friendly name may carry brackets of its own — SplitHostPort reads the first
+// ']' as the end of the address, gives up, and the handshake dies before the
+// known-hosts lookup even happens. What the lookup matches comes from the dial
+// hostname, so handing it the address without the zone loses nothing: the
+// match is made on the host the user asked for, and the zone only says which
+// of this machine's adapters to hop through.
+func parseableRemote(remote net.Addr) net.Addr {
+	if _, _, err := net.SplitHostPort(remote.String()); err == nil {
+		return remote
+	}
+	tcp, ok := remote.(*net.TCPAddr)
+	if !ok || tcp.Zone == "" {
+		return remote
+	}
+	return &net.TCPAddr{IP: tcp.IP, Port: tcp.Port}
+}
+
 // verifyHostKey is the ssh.HostKeyCallback: known keys pass, a changed key
 // fails without asking, and an unknown key waits for the user.
 func (conn *Conn) verifyHostKey(keys *hostKeys, hostname string, remote net.Addr, key ssh.PublicKey) error {
-	err := keys.callback(hostname, remote, key)
+	err := keys.callback(hostname, parseableRemote(remote), key)
 	if err == nil {
 		return nil
 	}
