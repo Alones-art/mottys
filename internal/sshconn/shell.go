@@ -88,7 +88,7 @@ func (conn *Conn) OpenShell(config ShellConfig) (*Shell, error) {
 	// The integration probe opens a command channel of its own before the
 	// shell, and a gateway that refuses a second channel ends the whole
 	// connection, so only an implementation the banner names is probed.
-	if command == "" && config.IntegrateShell && standardImplementation(conn.Status().ServerVersion) {
+	if command == "" && config.IntegrateShell && !conn.config.InteractiveOnly && standardImplementation(conn.Status().ServerVersion) {
 		command = conn.shellIntegrationCommand(config.IntegrationToken, config.StartDirectory)
 	}
 	// What the shell is decides how a command can be typed into it. The
@@ -100,7 +100,7 @@ func (conn *Conn) OpenShell(config ShellConfig) (*Shell, error) {
 	case config.Command != "":
 	case command != "":
 		kind = shellkind.POSIX
-	case standardImplementation(conn.Status().ServerVersion):
+	case standardImplementation(conn.Status().ServerVersion) && !conn.config.InteractiveOnly:
 		kind = conn.defaultShellKind(client)
 	}
 	session, err := client.NewSession()
@@ -112,7 +112,7 @@ func (conn *Conn) OpenShell(config ShellConfig) (*Shell, error) {
 	// implementation is asked. Servers usually accept LANG; without a UTF-8
 	// locale the shell would mangle multibyte input, which the charset handling
 	// then reports, but staying connected comes first. A refusal is harmless.
-	if standardImplementation(conn.Status().ServerVersion) {
+	if !conn.config.InteractiveOnly && standardImplementation(conn.Status().ServerVersion) {
 		_ = session.Setenv("LANG", utf8Locale())
 	}
 	term := config.Term

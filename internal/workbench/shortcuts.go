@@ -337,6 +337,16 @@ func (state *State) Shortcut(event gfx.KeyEvent) (outcome gfx.EventResult) {
 }
 
 // shortcut shares contextual routing between printable and named bindings.
+// numberShortcutHiddenInLogin keeps the digit row with the terminal behind the
+// CLI login dialog while the badges are hidden. That dialog runs a real shell
+// which needs the digits as text; hiding the badges used to unbind the row
+// everywhere, and the digits must still reach that one input. Tab jumps stay
+// bound for every other target.
+func (state *State) numberShortcutHiddenInLogin(chord keymap.Chord) bool {
+	return !state.tabNumbers && state.shortcuts.actionFor(chord) == shortcutTabNumber &&
+		state.ai.login != nil && state.ai.cfg.dialog == aiDialogCLILogin
+}
+
 func (state *State) shortcut(event gfx.KeyEvent, chord keymap.Chord) gfx.EventResult {
 	if state.notesVisible() && (state.notes.view.menu != "" || state.notes.view.popup != "" || state.notes.view.drawer || state.notes.confirm != "") {
 		action := state.shortcuts.actionFor(chord)
@@ -349,7 +359,7 @@ func (state *State) shortcut(event gfx.KeyEvent, chord keymap.Chord) gfx.EventRe
 		// Swallow the release of every press this routing consumed, a snippet
 		// chord included, so a terminal that asked for releases is not sent the
 		// end of a press it never saw.
-		consumed := state.shortcutActionFor(chord) != shortcutNone ||
+		consumed := (state.shortcutActionFor(chord) != shortcutNone && !state.numberShortcutHiddenInLogin(chord)) ||
 			state.activeSection == sectionTerminal && state.snippetFor(chord, -1) >= 0
 		return gfx.EventResult{Handled: consumed}
 	}
@@ -365,7 +375,7 @@ func (state *State) shortcut(event gfx.KeyEvent, chord keymap.Chord) gfx.EventRe
 	}
 	if login := state.ai.login; login != nil && state.ai.cfg.dialog == aiDialogCLILogin {
 		action := state.shortcutActionFor(chord)
-		if action == shortcutNone {
+		if action == shortcutNone || state.numberShortcutHiddenInLogin(chord) {
 			return gfx.EventResult{}
 		}
 		if action == shortcutPaste && event.Target == hitAICLILoginTerminal && login.term.shell != nil && !login.finished {

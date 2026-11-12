@@ -925,6 +925,7 @@ type ToolsMessages struct {
 	AgentAccess                     string
 	AgentAccessNote                 string
 	AdvancedSession                 string
+	InteractiveOnly                 string
 	AdvancedAgents                  string
 	AgentForwardUnavailableFmt      string
 	OTPKeep                         string

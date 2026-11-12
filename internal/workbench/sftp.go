@@ -1656,6 +1656,8 @@ func (state *State) pumpSFTP(session *Session) {
 				} else if errors.Is(result.Err, sftpclient.ErrRemoteChanged) {
 					view.dialog = sftpDialogRemoteChanged
 					view.errorText = state.messages.SFTPEditConflict
+				} else if result.Operation == sftpclient.OperationCreateDirectory {
+					view.errorText = state.sftpCreateDirectoryErrorText(path.Base(result.Path), result.Err)
 				} else {
 					view.errorText = fmt.Sprintf(state.messages.SFTPErrorFmt, result.Err)
 				}

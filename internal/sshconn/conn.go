@@ -238,6 +238,11 @@ type Config struct {
 	// DialTimeout bounds each TCP connect, including connects made through jump
 	// hosts. Zero disables the timeout.
 	DialTimeout time.Duration
+	// InteractiveOnly asks the connection to open only the user's interactive
+	// shell: no banner classification probe, no remote system command, no shell
+	// integration script or LANG request. Gateways can drop a connection that
+	// receives a second command channel.
+	InteractiveOnly bool
 	// KeepAlive optionally detects an unresponsive established connection.
 	KeepAlive KeepAliveConfig
 	// Algorithms sets what each endpoint negotiates, keyed by "host:port" as
@@ -580,7 +585,7 @@ func (conn *Conn) connect() error {
 	// until the answer arrives, so a guess that is about to be checked is not
 	// published at all.
 	guess := classifyBanner(serverVersion)
-	ask := standardImplementation(serverVersion) &&
+	ask := !conn.config.InteractiveOnly && standardImplementation(serverVersion) &&
 		(guess == SystemUnknown || guess == SystemUbuntu || guess == SystemDebian)
 	conn.update(func(status *Status) {
 		status.Phase = PhaseConnected

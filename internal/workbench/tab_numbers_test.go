@@ -109,34 +109,25 @@ func TestGroupedTabsKeepTheNumberOfTheirPlace(t *testing.T) {
 	}
 }
 
-func TestNumberKeysDoNothingWhileTheNumbersAreHidden(t *testing.T) {
+func TestNumberKeysKeepWorkingWhileTheNumbersAreHidden(t *testing.T) {
 	state, _ := threeTabs(t)
 	state.Click(hitHosts)
-	before := tabIndex(state)
 	press := func(digit string) gfx.EventResult {
 		return state.Shortcut(gfx.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: keymap.Primary, Text: digit})
 	}
-	if result := press("1"); result.Handled {
-		t.Fatal("a hidden number still took its key from the terminal")
-	}
-	if got := tabIndex(state); got != before {
-		t.Fatalf("a hidden number moved to tab %d, from %d", got, before)
+	// Hiding the numbers only hides the badges; the digit row stays bound.
+	if result := press("1"); !result.Handled || tabIndex(state) != 0 {
+		t.Fatalf("a hidden number lost its key: %+v tab=%d", result, tabIndex(state))
 	}
 
 	state.setTabNumbers(true)
-	if result := press("1"); !result.Handled {
-		t.Fatal("the number key did not move to its tab")
-	}
-	if got := tabIndex(state); got != 0 {
-		t.Fatalf("the first digit went to tab %d", got)
-	}
 	if result := press("2"); !result.Handled || tabIndex(state) != 1 {
-		t.Fatalf("the second digit did not reach the second tab: %+v", result)
+		t.Fatalf("the digit did not reach the second tab: %+v", result)
 	}
 
 	state.setTabNumbers(false)
-	if result := press("1"); result.Handled || tabIndex(state) != 1 {
-		t.Fatalf("hiding the numbers again left the key bound: handled=%v tab=%d", result.Handled, tabIndex(state))
+	if result := press("1"); !result.Handled || tabIndex(state) != 0 {
+		t.Fatalf("hiding the numbers again disabled the key: handled=%v tab=%d", result.Handled, tabIndex(state))
 	}
 }
 

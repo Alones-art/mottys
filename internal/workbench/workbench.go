@@ -1017,6 +1017,9 @@ func (state *State) Close() {
 	}
 	state.callbacksClosed.Store(true)
 	state.closed = true
+	// A desktop tab may have disabled this window's input method; always give
+	// it back when the app goes away.
+	setLocalIMEEnabled(true)
 	state.closeTabPreview()
 	state.remote.auto.enabled = false
 	state.closeRemoteProcessDetails()

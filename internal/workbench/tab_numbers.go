@@ -84,8 +84,9 @@ func (state *State) setTabNumberModifier(id gfx.ID) bool {
 	return true
 }
 
-// setTabNumbers shows or hides the number each tab carries, and with it the
-// number shortcuts: a key with no number on screen has nothing to name.
+// setTabNumbers shows or hides the number each tab carries. It is a purely
+// visual setting: the digit shortcuts keep working either way, so hiding the
+// numbers does not take a key away from the user.
 func (state *State) setTabNumbers(shown bool) bool {
 	if state.tabNumbers == shown {
 		return false
@@ -113,13 +114,10 @@ func tabNumberColor(foreground gfx.Color) gfx.Color {
 	return foreground
 }
 
-// shortcutActionFor is actionFor with the settings that switch an action off.
-// The number row is the one action a setting can silence: with the numbers
-// hidden, its keys belong to the terminal again.
+// shortcutActionFor resolves a chord through the shortcut table. Showing or
+// hiding the tab numbers is a paint-only setting and must not silence the digit
+// jumps: a user who hides the numbers still expects Alt+1..9 (or the chosen
+// modifier) to open that tab.
 func (state *State) shortcutActionFor(chord keymap.Chord) shortcutAction {
-	action := state.shortcuts.actionFor(chord)
-	if action == shortcutTabNumber && !state.tabNumbers {
-		return shortcutNone
-	}
-	return action
+	return state.shortcuts.actionFor(chord)
 }

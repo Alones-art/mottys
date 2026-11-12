@@ -31,6 +31,12 @@ var ErrNegotiateToken = errors.New("token negotiation failed")
 // was attempted. Callers must not retry credentials or fall back to TLS-only.
 var ErrCredentialsSent = errors.New("failed after credentials were sent")
 
+// ErrServerClosedAfterAuth marks a server that dropped the connection after
+// the credentials were sent but never answered with a refusal. The account was
+// not refused, so this must not turn into a password error or drop a saved
+// password; it is an ordinary disconnect during authentication.
+var ErrServerClosedAfterAuth = errors.New("server closed the connection after authentication")
+
 // isFatalNTSTATUS returns true for error codes where retrying is pointless.
 func isFatalNTSTATUS(code int) bool {
 	switch uint32(code) {
@@ -271,11 +277,11 @@ func authenticate(tlsConn *tls.Conn, log *slog.Logger, hostname, domain, usernam
 	resp2, err := readTSRequest(tlsConn)
 	if err != nil {
 		log.LogAttrs(ctx, slog.LevelError, "failed reading server pubKeyAuth", slog.String("error", err.Error()))
-		// Motty divergence: the password has been sent. A server that drops the
-		// connection now has refused it (Windows does not say so), and trying again
-		// under another TLS or CredSSP version would be another failed logon for the
-		// account, enough to lock it out after a single mistyped password.
-		return fmt.Errorf("%w: credssp: the server closed the connection after the credentials were sent: %w", ErrCredentialsFatal, err)
+		// The password has been sent, but the server never said it refused it.
+		// Retrying another TLS/CredSSP version would send the credentials again,
+		// so the handshake still stops here (ErrCredentialsSent below), but
+		// the reason is a disconnect, not a rejected password.
+		return fmt.Errorf("%w: credssp: the server closed the connection after the credentials were sent: %w", ErrServerClosedAfterAuth, err)
 	}
 	log.LogAttrs(ctx, slog.LevelDebug, "received server pubKeyAuth response", slog.Int("pubKeyAuthBytes", len(resp2.PubKeyAuth)), util.Hex8("errorCode", uint32(resp2.ErrorCode)))
 	if resp2.ErrorCode != 0 {

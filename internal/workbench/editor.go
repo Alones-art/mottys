@@ -81,6 +81,9 @@ type hostEditor struct {
 	agentAccess bool
 	// noHistory is the host's "Don't record commands" switch.
 	noHistory bool
+	// interactiveOnly is the "Interactive session only" switch: automatic
+	// probe commands are skipped for a gateway that would drop the connection.
+	interactiveOnly bool
 	// proxy is nil to inherit the global proxy, ProxyNone to force a direct
 	// connection, or a dedicated proxy. proxyPassword is staged until the outer
 	// host form is saved.
@@ -260,9 +263,10 @@ func (editor *hostEditor) load(host Host) {
 	editor.forwardX11 = host.ForwardX11
 	editor.agentForward = host.AgentForward
 	editor.noHistory = host.NoHistory
+	editor.interactiveOnly = host.InteractiveOnly
 	editor.proxy, editor.proxyPassword = cloneOutboundProxy(host.Proxy), ""
 	editor.transfer = host.Transfer
-	editor.advancedOpen = host.isSSH() && (host.Algo != nil || host.ForwardX11 || host.AgentForward || host.NoHistory || host.LoginCommand != "")
+	editor.advancedOpen = host.isSSH() && (host.Algo != nil || host.ForwardX11 || host.AgentForward || host.NoHistory || host.InteractiveOnly || host.LoginCommand != "")
 	if host.Algo != nil {
 		editor.algorithms.Insert(host.Algo.list)
 	}
@@ -316,6 +320,7 @@ func (editor *hostEditor) host(id uint32) Host {
 		host.ForwardX11 = editor.forwardX11
 		host.AgentForward = editor.agentForward
 		host.NoHistory = editor.noHistory
+		host.InteractiveOnly = editor.interactiveOnly
 		host.LoginCommand = editor.value(fieldLoginCommand)
 		host.Transfer = editor.transfer
 		switch editor.algoMode {

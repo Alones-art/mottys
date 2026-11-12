@@ -45,6 +45,16 @@ The changes below are relative to upstream; everything else matches it:
   `-trimpath -ldflags "-s -w -buildid= -H=windowsgui"`, with the portable zip
   packed by `tools/portablezip` into `motty-build/`.
 
+### Fixes implemented here
+
+These were written for this fork on its own terms, without merging upstream code:
+
+- Digit tab jumps keep working when the tab numbers are hidden, while a CLI login dialog still passes digits to its terminal.
+- Creating an SFTP directory over an existing name shows a localized message instead of the backend error.
+- A focused remote desktop detaches the local Windows IME; switching back to a terminal or closing the app restores it.
+- An RDP server closing the connection after credentials were sent is treated as a disconnect, not a wrong password, and keeps the saved password.
+- Hosts get an "Interactive session only" switch: automatic banner, system, shell-integration and LANG probes are skipped for gateways that would drop the connection. The setting is persisted with the host.
+
 <table>
   <tr>
     <td width="50%" valign="top">

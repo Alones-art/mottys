@@ -118,6 +118,10 @@ type savedTransport struct {
 	AgentForward bool `json:"agent_forward,omitempty"`
 	// NoHistory is set for an SSH host whose commands are not remembered.
 	NoHistory bool `json:"no_history,omitempty"`
+	// InteractiveOnly is set for an SSH host that refuses automatic probe
+	// commands: a gateway with its own menu can end the connection when a
+	// second command channel is opened.
+	InteractiveOnly bool `json:"interactive_only,omitempty"`
 	// LoginCommand is the line an SSH host types into its shell after login.
 	LoginCommand string `json:"login_command,omitempty"`
 	// Transfer is "sftp" or "scp" for an SSH host whose file panel does not
@@ -163,6 +167,7 @@ func (host Host) transport() savedTransport {
 	transport.Algorithms, transport.AlgorithmList = mode, list
 	transport.Authentication, transport.Identity = host.Auth.saved(), host.Identity
 	transport.ForwardX11, transport.AgentForward, transport.NoHistory, transport.Transfer = host.ForwardX11, host.AgentForward, host.NoHistory, host.savedTransfer()
+	transport.InteractiveOnly = host.InteractiveOnly
 	transport.LoginCommand = host.LoginCommand
 	return transport
 }
@@ -187,6 +192,7 @@ func (host *Host) applyTransport(transport savedTransport) bool {
 		host.ForwardX11 = transport.ForwardX11
 		host.AgentForward = transport.AgentForward
 		host.NoHistory = transport.NoHistory
+		host.InteractiveOnly = transport.InteractiveOnly
 		host.LoginCommand = restoredLoginCommand(transport.LoginCommand)
 		return host.applyTransfer(transport.Transfer) && host.applyAlgo(transport.Algorithms, transport.AlgorithmList)
 	case "telnet":

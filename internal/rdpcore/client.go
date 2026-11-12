@@ -746,6 +746,12 @@ func (c *Client) credsspAuth() error {
 		if errors.Is(err, nla.ErrCredentialsFatal) {
 			return fmt.Errorf("%w: %w", ErrAuthFailed, err)
 		}
+		// A server that closed the connection after the credentials were sent
+		// did not refuse the account. Keep it out of the auth-failure path, which
+		// would ask for the password again and forget the saved one.
+		if errors.Is(err, nla.ErrServerClosedAfterAuth) {
+			return fmt.Errorf("%w: CredSSP: %w", ErrDisconnected, err)
+		}
 		return fmt.Errorf("%w: CredSSP: %w", ErrNegotiationFailed, err)
 	}
 	c.logNla.LogAttrs(context.Background(), slog.LevelInfo, "CredSSP authentication successful")

@@ -481,10 +481,7 @@ func (state *State) submitLocalDirectory(view *sftpView, name string) bool {
 	}
 	target := filepath.Join(view.lfolder.path, name)
 	if err := os.Mkdir(target, 0o755); err != nil {
-		view.dialogError = err.Error()
-		if errors.Is(err, os.ErrExist) {
-			view.dialogError = fmt.Sprintf(state.messages.SFTPErrorFmt, err)
-		}
+		view.dialogError = state.sftpCreateDirectoryErrorText(name, err)
 		return false
 	}
 	state.closeSFTPDialog(view)

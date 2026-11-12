@@ -249,6 +249,10 @@ func (w *sftpWindow) browseDirectoryFailed(directory string, err error) {
 	w.view.pathRequest, w.view.errorText = "", ""
 	w.view.setItemCountStatus(w.owner.messages.SFTPItemsFmt, len(w.view.active().rows))
 	m := w.owner.messages.SFTPWindow
+	if sftpDirectoryExists(err) {
+		w.notices.show(m.BrowseSync, fmt.Sprintf(w.owner.messages.SFTPDirectoryExistsFmt, path.Base(directory)), components.ToastError)
+		return
+	}
 	w.notices.showPathReason(m.BrowseSync, m.BrowseCreateFailedFmt, directory, err.Error(), components.ToastError)
 }
 

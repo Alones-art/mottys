@@ -341,6 +341,14 @@ func TestCredSSPErrorStages(t *testing.T) {
 			if test.code == 0x80090308 && errors.Is(err, ErrCredentialsFatal) {
 				t.Fatalf("protocol error was classified as rejected credentials: %v", err)
 			}
+			if test.code == 0 && test.afterAuth {
+				if errors.Is(err, ErrCredentialsFatal) {
+					t.Fatalf("a disconnect after Authenticate was reported as refused credentials: %v", err)
+				}
+				if !errors.Is(err, ErrServerClosedAfterAuth) {
+					t.Fatalf("a disconnect after Authenticate lost its marker: %v", err)
+				}
+			}
 		})
 	}
 }

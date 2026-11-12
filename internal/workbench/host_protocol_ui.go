@@ -38,6 +38,7 @@ var (
 	hitDialogForwardX11      = tree.ID(hostProtocolUiHits, "dialog-forward-x11")
 	hitDialogAgentForward    = tree.ID(hostProtocolUiHits, "dialog-agent-forward")
 	hitDialogNoHistory       = tree.ID(hostProtocolUiHits, "dialog-no-history")
+	hitDialogInteractiveOnly = tree.ID(hostProtocolUiHits, "dialog-interactive-only")
 	hitDialogAgentAccess     = tree.ID(hostProtocolUiHits, "dialog-agent-access")
 	hitDialogAgentAccessHelp = tree.ID(hostProtocolUiHits, "dialog-agent-access-help")
 	hitDialogOTP             = tree.ID(hostProtocolUiHits, "dialog-otp")
@@ -272,6 +273,8 @@ func (state *State) clickHostProtocol(id gfx.ID) bool {
 		editor.agentForward = !editor.agentForward
 	case id == hitDialogNoHistory:
 		editor.noHistory = !editor.noHistory
+	case id == hitDialogInteractiveOnly:
+		editor.interactiveOnly = !editor.interactiveOnly
 	case id == hitDialogAgentAccess:
 		editor.agentAccess = !editor.agentAccess
 	case state.clickHostAuthentication(id):
@@ -392,7 +395,7 @@ const (
 	groupHeadingHeight = 40
 	// sshSwitchRowsHeight is both groups: the first row sits 4px under its
 	// heading, the others 12px under the row above, and 16px are left at the end.
-	sshSwitchRowsHeight = groupHeadingHeight + (4 + 20) + 2*(12+20) + groupHeadingHeight + (4 + 20) + 16
+	sshSwitchRowsHeight = groupHeadingHeight + (4 + 20) + 3*(12+20) + groupHeadingHeight + (4 + 20) + 16
 )
 
 // advancedHeaderHeight is the row that opens the Advanced section of an SSH
@@ -469,7 +472,7 @@ func (state *State) paintAlgorithmRows(canvas *gfx.Canvas, x, y, width, rowHeigh
 		rows++
 	}
 	const removeWidth, scanWidth, pasteWidth = 84, 132, 96
-	var algo, custom, login, otp, scan, paste, remove, x11, agentFwd, noHistory, agentAccess, agentHelp ui.Box
+	var algo, custom, login, otp, scan, paste, remove, x11, agentFwd, noHistory, interactiveOnly, agentAccess, agentHelp ui.Box
 	f := state.partLayout.Begin(canvas, state.Theme(), gfx.Rect{X: x, Y: y, Width: width, Height: (rows+1)*rowHeight + otpFieldHeight + otpButtonsRow + sshSwitchRowsHeight})
 	heading := func(title string) {
 		f.Column().Height(groupHeadingHeight).Children(func() {
@@ -495,6 +498,7 @@ func (state *State) paintAlgorithmRows(canvas *gfx.Canvas, x, y, width, rowHeigh
 		x11 = state.declareDialogCheckbox(f, m.X11Forward, 4, 0)
 		agentFwd = state.declareDialogCheckbox(f, m.AgentForward, 12, 0)
 		noHistory = state.declareDialogCheckbox(f, state.messages.History.HostNoRecord, 12, 0)
+		interactiveOnly = state.declareDialogCheckbox(f, m.InteractiveOnly, 12, 0)
 		heading(m.AdvancedAgents)
 		agentAccess, agentHelp = state.declareDialogCheckboxHelp(f, m.AgentAccess, 4, 0)
 	})
@@ -520,6 +524,7 @@ func (state *State) paintAlgorithmRows(canvas *gfx.Canvas, x, y, width, rowHeigh
 	state.paintDialogCheckbox(canvas, hitDialogForwardX11, m.X11Forward, editor.forwardX11, x11)
 	state.paintDialogCheckbox(canvas, hitDialogAgentForward, m.AgentForward, editor.agentForward, agentFwd)
 	state.paintDialogCheckbox(canvas, hitDialogNoHistory, state.messages.History.HostNoRecord, editor.noHistory, noHistory)
+	state.paintDialogCheckbox(canvas, hitDialogInteractiveOnly, m.InteractiveOnly, editor.interactiveOnly, interactiveOnly)
 	state.paintDialogCheckbox(canvas, hitDialogAgentAccess, m.AgentAccess, editor.agentAccess, agentAccess)
 	// After the checkbox, whose words reach to the end of the row, so that this is
 	// the hit on top where the two meet.

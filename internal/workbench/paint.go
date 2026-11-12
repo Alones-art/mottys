@@ -136,6 +136,7 @@ func (state *State) Paint(canvas *gfx.Canvas, size gfx.Size) {
 	}
 	state.refreshOutputAlerts(canvas)
 	state.syncVisible()
+	state.syncDesktopIME()
 	state.syncSFTPTabs()
 	state.reveal.beginPaint()
 	state.toolbarDock.count = 0
