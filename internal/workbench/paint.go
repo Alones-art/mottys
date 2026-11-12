@@ -442,6 +442,7 @@ func (state *State) Paint(canvas *gfx.Canvas, size gfx.Size) {
 	state.paintSnippetMenu(canvas, viewport)
 	state.paintSFTPMenu(canvas, viewport)
 	state.paintQueuedSFTPHeaderMenu(canvas)
+	state.paintQueuedSFTPUploadMenu(canvas)
 	state.paintHostMenus(canvas, viewport)
 	state.endMenus()
 	state.requestReconnectFrames(canvas)

@@ -162,7 +162,8 @@ func TestFilePanelFallsBackToSCPWhenSFTPIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	state.options.OpenFiles = func(app.OpenFileOptions) ([]string, error) { return []string{local}, nil }
-	state.Click(hitSFTPUpload)
+	state.Click(hitSFTPUploadMenu)
+	state.Click(hitSFTPUploadFiles)
 	waitSFTP(t, state, session, func(view *sftpView) bool {
 		return !view.busy && sftpRowIndexOrNegative(view, "upload.bin") >= 0
 	})

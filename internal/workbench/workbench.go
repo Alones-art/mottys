@@ -349,6 +349,10 @@ var (
 	hitSFTPCancel          = tree.ID(sftpHits, "sftp-cancel")
 	hitSFTPUpload          = tree.ID(sftpHits, "sftp-upload")
 	hitSFTPUploadDirectory = tree.ID(sftpHits, "sftp-upload-directory")
+	hitSFTPUploadMenu      = tree.ID(sftpHits, "sftp-upload-menu")
+	hitSFTPUploadFiles     = tree.ID(sftpHits, "sftp-upload-files")
+	hitSFTPUploadFolder    = tree.ID(sftpHits, "sftp-upload-folder")
+	hitSFTPUploadDismiss   = tree.ID(sftpHits, "sftp-upload-dismiss")
 	hitSFTPNewDirectory    = tree.ID(sftpHits, "sftp-new-directory")
 	hitSFTPNewFile         = tree.ID(sftpHits, "sftp-new-file")
 	hitSFTPOpenEntry       = tree.ID(sftpHits, "sftp-open-entry")
@@ -553,6 +557,7 @@ type State struct {
 	snippetMenu            snippetMenu
 	sftpMenu               sftpMenu
 	sftpHeaderMenu         sftpHeaderMenuRequest
+	sftpUploadMenu         sftpUploadMenuRequest
 	fileProperties         sftpFileProperties
 	popups                 popupMenus
 	selectedHostID         uint32

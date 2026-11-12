@@ -52,7 +52,7 @@ func TestLocalPaneListsThisComputerFoldersFirstAndKeepsTheServersListing(t *test
 	if _, ok := hitByID(&canvas, contextID(hitSFTPPaneToggle)); !ok {
 		t.Fatal("no way back to the server's files")
 	}
-	if _, ok := hitByID(&canvas, contextID(hitSFTPUpload)); ok {
+	if _, ok := hitByID(&canvas, contextID(hitSFTPUploadMenu)); ok {
 		t.Fatal("the remote-only upload button is shown for local files")
 	}
 	// Back again: the server's list is as it was.

@@ -48,7 +48,7 @@ var toolbarCatalog = [3][]toolbarSpec{
 		{"remote-tools", hitProcessToolsOpen, iconProcess},
 	},
 	toolbarSFTP: {
-		{"upload-file", hitSFTPUpload, iconUpload}, {"upload-folder", hitSFTPUploadDirectory, iconFolderUp},
+		{"upload-file", hitSFTPUploadMenu, iconUpload},
 		{"new-folder", hitSFTPNewDirectory, iconFolderPlus}, {"new-file", hitSFTPNewFile, iconFilePlus}, {"new-link", hitSFTPNewLink, iconLink},
 		{"local-remote", hitSFTPPaneToggle, iconHosts}, {"refresh", hitSFTPRefresh, iconRefresh},
 		{"panel-side", hitSFTPPanelSide, iconColumns2}, {"close", hitSFTPClose, iconClose},
@@ -239,6 +239,8 @@ func (state *State) toolbarLabel(id gfx.ID) string {
 		return m.LocalProxy.Title
 	case hitSFTPDetach:
 		return m.SFTPWindow.Open
+	case hitSFTPUploadMenu:
+		return m.SFTPUpload
 	case hitSFTPUpload:
 		return m.SFTPUpload
 	case hitSFTPUploadDirectory:

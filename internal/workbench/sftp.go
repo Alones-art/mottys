@@ -84,6 +84,7 @@ type sftpFolder struct {
 	showHidden     bool
 	pathEditing    bool
 	headerMenuOpen bool
+	uploadMenuOpen bool // the Upload button's menu is showing: file or folder
 	sortOrder      sftpWindowSort
 	sortChosen     bool
 	localCoverage  localListingCoverage
@@ -368,6 +369,21 @@ func (state *State) clickSFTP(id gfx.ID) {
 		return
 	}
 	folder := view.active()
+	if folder.uploadMenuOpen {
+		// The Upload menu owns the next press: whichever entry it lands on
+		// acts and closes, and a press anywhere else just closes.
+		switch id {
+		case hitSFTPUploadFiles:
+			folder.uploadMenuOpen = false
+			state.uploadSFTP(view)
+		case hitSFTPUploadFolder:
+			folder.uploadMenuOpen = false
+			state.uploadSFTPDirectory(view)
+		default:
+			folder.uploadMenuOpen = false
+		}
+		return
+	}
 	if folder.headerMenuOpen {
 		if state.clickSFTPHistory(view, view.local, id, hitSFTPHistoryBack, hitSFTPHistoryForward, sftpRecentHits) {
 			folder.headerMenuOpen = false
@@ -441,8 +457,8 @@ func (state *State) clickSFTP(id gfx.ID) {
 		state.navigateSFTPDirectory(view, path.Dir(view.path))
 	case id == hitSFTPDownload && !view.busy:
 		state.downloadSFTP(view)
-	case id == hitSFTPUpload && !view.busy:
-		state.uploadSFTP(view)
+	case id == hitSFTPUploadMenu && !view.busy:
+		folder.uploadMenuOpen = true
 	case id == hitSFTPUploadDirectory && !view.busy:
 		state.uploadSFTPDirectory(view)
 	case id == hitSFTPNewDirectory && !view.busy:

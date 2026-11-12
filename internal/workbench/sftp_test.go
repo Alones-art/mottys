@@ -742,7 +742,9 @@ func TestSFTPUploadUsesOpenFilesAndRefreshesDirectory(t *testing.T) {
 		return []string{localPath}, nil
 	}
 
-	state.Click(hitSFTPUpload)
+	// The Upload button opens the menu; files go through its first entry.
+	state.Click(hitSFTPUploadMenu)
+	state.Click(hitSFTPUploadFiles)
 	if session.files.busy || !strings.Contains(session.files.status, "upload.bin") {
 		t.Fatalf("upload did not enter queue: %+v", session.files)
 	}
@@ -808,7 +810,8 @@ func TestSFTPUploadsMultipleFilesAndDirectory(t *testing.T) {
 		}
 		return []string{first, second}, nil
 	}
-	state.Click(hitSFTPUpload)
+	state.Click(hitSFTPUploadMenu)
+	state.Click(hitSFTPUploadFiles)
 	waitSFTP(t, state, session, func(view *sftpView) bool {
 		return len(view.transfers) == 2 && view.transfers[0].State == sftpclient.TransferCompleted && view.transfers[1].State == sftpclient.TransferCompleted && !view.busy
 	})
@@ -826,7 +829,8 @@ func TestSFTPUploadsMultipleFilesAndDirectory(t *testing.T) {
 		}
 		return directory, nil
 	}
-	state.Click(hitSFTPUploadDirectory)
+	state.Click(hitSFTPUploadMenu)
+	state.Click(hitSFTPUploadFolder)
 	waitSFTP(t, state, session, func(view *sftpView) bool {
 		return len(view.transfers) == 3 && view.transfers[2].State == sftpclient.TransferCompleted && !view.busy
 	})
@@ -2016,5 +2020,40 @@ func TestSFTPMultiMoveRefusesMovingIntoSelectedFolder(t *testing.T) {
 	state.Click(hitSFTPDialogSubmit)
 	if view.dialog != sftpDialogMove || view.dialogError != state.messages.SFTPErrMoveInside {
 		t.Fatalf("multi move into a selected folder's descendant = dialog %d, error %q", view.dialog, view.dialogError)
+	}
+}
+
+// The Upload button opens a menu of two entries: files and a folder. A press
+// anywhere else closes it without acting.
+func TestSFTPUploadButtonOpensTheMenu(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := session.files
+
+	state.Click(hitSFTPUploadMenu)
+	if !view.active().uploadMenuOpen {
+		t.Fatal("the Upload button did not open its menu")
+	}
+	var canvas gfx.Canvas
+	state.Paint(&canvas, gfx.Size{Width: 1400, Height: 900})
+	for _, id := range []gfx.ID{hitSFTPUploadFiles, hitSFTPUploadFolder, hitSFTPUploadDismiss} {
+		if _, ok := hitByID(&canvas, id); !ok {
+			t.Fatalf("the upload menu lacks %s", tree.Text(id))
+		}
+	}
+	// Choosing the folder entry closes the menu and opens the folder picker.
+	chose := false
+	state.options.OpenDirectory = func(app.OpenDirectoryOptions) (string, error) {
+		chose = true
+		return "", errors.New("test")
+	}
+	state.Click(hitSFTPUploadFolder)
+	if view.active().uploadMenuOpen || !chose {
+		t.Fatalf("choosing a folder entry: menu=%v picker=%v", view.active().uploadMenuOpen, chose)
+	}
+
+	state.Click(hitSFTPUploadMenu)
+	state.Click(hitSFTPUploadDismiss)
+	if view.active().uploadMenuOpen {
+		t.Fatal("a press beside the menu did not close it")
 	}
 }

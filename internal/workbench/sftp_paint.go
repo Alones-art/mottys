@@ -102,8 +102,8 @@ func (state *State) paintSFTPPage(canvas *gfx.Canvas, size gfx.Size, session *Se
 		addHeader(hitSFTPNewDirectory, iconFolderPlus, messages.SFTPNewDirectory, false)
 		addHeader(hitSFTPNewFile, iconFilePlus, messages.SFTPNewFile, false)
 	} else {
-		addHeader(hitSFTPUpload, iconUpload, messages.SFTPUpload, view.busy)
-		addHeader(hitSFTPUploadDirectory, iconFolderUp, messages.SFTPUploadDirectory, view.busy)
+		// One Upload button opens the menu that chooses files or a folder.
+		addHeader(hitSFTPUploadMenu, iconUpload, messages.SFTPUpload, view.busy)
 		addHeader(hitSFTPNewDirectory, iconFolderPlus, messages.SFTPNewDirectory, view.busy)
 		addHeader(hitSFTPNewFile, iconFilePlus, messages.SFTPNewFile, view.busy)
 		addHeader(hitSFTPNewLink, iconLink, messages.Tools.TipNewLink, view.busy)
@@ -117,7 +117,7 @@ func (state *State) paintSFTPPage(canvas *gfx.Canvas, size gfx.Size, session *Se
 	addHeader(hitSFTPClose, iconClose, messages.TipSFTPClose, false)
 	headerTools = state.orderToolbarTools(toolbarSFTP, headerTools, false)
 	buttonCount, headerButtonCount := 0, 0
-	var header, crumbs, filterSlot, listSlot, spinnerSlot, moreButton ui.Box
+	var header, crumbs, filterSlot, listSlot, spinnerSlot, moreButton, uploadButton ui.Box
 
 	f := state.filesLayout.Begin(canvas, state.Theme(), gfx.Rect{Y: windowBarHeight, Width: size.Width, Height: max(0, size.Height-windowBarHeight)})
 	// icon declares an icon button where it goes; it is painted after End.
@@ -264,7 +264,9 @@ func (state *State) paintSFTPPage(canvas *gfx.Canvas, size gfx.Size, session *Se
 	for index := range buttons[:buttonCount] {
 		if buttons[index].id == hitSFTPHeaderMore {
 			moreButton = buttons[index].box
-			break
+		}
+		if buttons[index].id == hitSFTPUploadMenu {
+			uploadButton = buttons[index].box
 		}
 	}
 
@@ -276,6 +278,9 @@ func (state *State) paintSFTPPage(canvas *gfx.Canvas, size gfx.Size, session *Se
 	state.paintSFTPIconButtons(canvas, buttons[:buttonCount])
 	if folder.headerMenuOpen && state.sftpHeaderMenuAvailable(view) {
 		state.requestSFTPHeaderMenu(moreButton.Rect(), folder, view)
+	}
+	if folder.uploadMenuOpen {
+		state.requestSFTPUploadMenu(uploadButton.Rect(), view)
 	}
 	if folder.filterOpen {
 		state.paintSFTPFilter(canvas, filterSlot.Rect(), folder)

@@ -168,6 +168,48 @@ func (state *State) requestSFTPHeaderMenu(anchor gfx.Rect, folder *sftpFolder, v
 	state.sftpHeaderMenu = sftpHeaderMenuRequest{queued: true, anchor: anchor, folder: folder, view: view}
 }
 
+// sftpUploadMenuRequest queues the Upload button's menu of the docked panel:
+// one entry for files and one for folders.
+type sftpUploadMenuRequest struct {
+	queued bool
+	anchor gfx.Rect
+	view   *sftpView
+}
+
+// requestSFTPUploadMenu records the docked panel's Upload menu for the page.
+func (state *State) requestSFTPUploadMenu(anchor gfx.Rect, view *sftpView) {
+	state.sftpUploadMenu = sftpUploadMenuRequest{queued: true, anchor: anchor, view: view}
+}
+
+// paintQueuedSFTPUploadMenu paints the Upload menu the docked panel asked for,
+// over the page, where its backdrop covers the whole window.
+func (state *State) paintQueuedSFTPUploadMenu(canvas *gfx.Canvas) {
+	request := state.sftpUploadMenu
+	state.sftpUploadMenu = sftpUploadMenuRequest{}
+	if !request.queued || request.anchor.Width == 0 || state.contextRect.Width == 0 {
+		return
+	}
+	origin := gfx.Point{X: state.contextRect.X, Y: state.contextRect.Y - windowBarHeight}
+	state.paintSFTPUploadMenu(canvas, origin, state.windowRect(), request.anchor, request.view)
+}
+
+// paintSFTPUploadMenu paints the Upload menu under the button that opened it:
+// files first, then a folder, both straight to their pickers.
+func (state *State) paintSFTPUploadMenu(canvas *gfx.Canvas, origin gfx.Point, viewport gfx.Rect, anchor gfx.Rect, view *sftpView) {
+	if anchor.Width == 0 || anchor.Height == 0 {
+		return
+	}
+	anchor.X, anchor.Y = anchor.X+origin.X, anchor.Y+origin.Y
+	bounds := state.popupBelow(canvas, anchor, 220, 26*2+26, ui.Start)
+	menu := components.BeginDropdownMenu(canvas, state.Theme(), bounds, components.DropdownMenuOptions{
+		Layer: dialogLayer, Scope: dialogScope, DismissID: hitSFTPUploadDismiss,
+		Viewport: viewport, Scroll: state.menuScrollFor(hitSFTPUploadDismiss),
+	})
+	state.menuPlaced(menu.Bounds())
+	menu.AddItem(components.DropdownMenuItem{ID: hitSFTPUploadFiles, Label: state.messages.SFTPUpload, Icon: lucideIcons[iconUpload]})
+	menu.AddItem(components.DropdownMenuItem{ID: hitSFTPUploadFolder, Label: state.messages.SFTPUploadDirectory, Icon: lucideIcons[iconFolderUp]})
+}
+
 // requestSFTPWindowHeaderMenu records a file tab's More menu for the page.
 func (state *State) requestSFTPWindowHeaderMenu(window *sftpWindow, side int, anchor gfx.Rect) {
 	state.sftpHeaderMenu = sftpHeaderMenuRequest{queued: true, window: window, side: side, anchor: anchor}
